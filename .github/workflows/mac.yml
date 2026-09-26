@@ -1,0 +1,55 @@
+# Builds the macOS app. A tag such as v0.1.0 also publishes a draft GitHub release with
+# the .dmg, the .zip and latest-mac.yml (the update feed); a manual run only uploads
+# them as a workflow artifact.
+#
+# Signing and notarising happen when these repository secrets exist; without them the
+# build is unsigned (fine for trying it yourself, see the README):
+#   MAC_CERT_P12_BASE64   Developer ID Application certificate, .p12, base64-encoded
+#   MAC_CERT_PASSWORD     the .p12 password
+#   APPLE_ID              the Apple ID that owns the certificate
+#   APPLE_APP_SPECIFIC_PASSWORD   an app-specific password for that Apple ID
+#   APPLE_TEAM_ID         the 10-character team ID
+name: Build macOS app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build and package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then PUBLISH=always; else PUBLISH=never; fi
+          npm run build
+          npx electron-builder --mac --publish "$PUBLISH" --config electron-builder.config.cjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AnotherNotes-mac
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/latest-mac.yml
+          if-no-files-found: error
