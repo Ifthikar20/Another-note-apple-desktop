@@ -10,6 +10,7 @@ import {
 import path from "node:path";
 import { APP_ORIGIN, APP_URL } from "./config";
 import { openExternal } from "./links";
+import { watchLessonAudio } from "./media";
 import { loadWindowState, saveWindowState } from "./store";
 
 let mainWindow: BrowserWindow | null = null;
@@ -100,10 +101,14 @@ export function createMainWindow(first: FirstPage = "app"): BrowserWindow {
       sandbox: true,
       nodeIntegration: false,
       spellcheck: true,
+      // A lesson keeps its pace behind other windows: the tutor's timing and the
+      // pointer's flights are timers, which Chromium would otherwise slow to a crawl.
+      backgroundThrottling: false,
       additionalArguments: [`--anothernotes-version=${app.getVersion()}`],
     },
   });
   mainWindow = win;
+  watchLessonAudio(win);
   if (state.maximized) win.maximize();
   // Show on the first paint, or after a moment on a slow network: a window that never
   // appears looks like an app that never started.

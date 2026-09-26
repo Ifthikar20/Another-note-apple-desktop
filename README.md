@@ -145,12 +145,36 @@ to a packaged app, so to try the whole round trip in development run `npm run pa
 open `release/mac-universal/AnotherNotes.app` once; `npm start` alone can test everything
 up to the link.
 
+## Lessons in the window
+
+Teach mode is the web app's, unchanged: the tutor's pointer is drawn by the page, and the
+voice is Speechify's, streamed clip by clip through MediaSource and playing while the
+bytes still arrive. What the shell adds around it:
+
+- **The screen stays awake** while the window is making sound, and for a minute after
+  it goes quiet, so a lesson never dims mid-explanation.
+- **No throttling behind other windows**: Chromium would slow a background page's
+  timers to a crawl, and the tutor's timing and the pointer's flights are timers.
+- **Media keys and the Now Playing widget** play, pause and step the lesson: the web app
+  publishes the lesson through the Media Session API, and Chromium hands the hardware
+  keys to it.
+- **The microphone** goes straight to the server's transcription (faster-whisper).
+  Chromium's built-in recognizer exists in Electron but has no Google key behind it and
+  fails on every use, so the web app skips it when it runs in the app. macOS asks for
+  the microphone the first time; the usage description and entitlement are in place.
+
+Checked in this build with a streamed MP3: playback starts about 120 ms in, before the
+clip has finished arriving; the voice headers are readable; recording through the
+permission handler yields Opus; the display blocker engages on Chromium's own audible
+signal.
+
 ## Layout
 
 ```
 src/main/index.ts       app lifecycle: single instance, permissions, the client header, deep links, IPC
 src/main/auth.ts        sign-in through the browser: state + PKCE, the anothernotes:// link, the exchange
 src/main/windows.ts     the main window, welcome screen, remembered bounds, navigation rules, context menu
+src/main/media.ts       the display stays awake while the window plays sound
 src/main/menu.ts        native menus and shortcuts (New Note, Go, Reload, zoom, updates)
 src/main/updater.ts     electron-updater against the GitHub Releases feed
 src/main/store.ts       window-state.json in the app's data folder
