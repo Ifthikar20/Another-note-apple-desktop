@@ -1,4 +1,5 @@
 import { app, Menu, type MenuItemConstructorOptions } from "electron";
+import { beginBrowserSignIn } from "./auth";
 import { WEBSITE_URL } from "./config";
 import { openExternal } from "./links";
 import { checkForUpdates } from "./updater";
@@ -69,6 +70,8 @@ export function installMenu(): void {
       label: "File",
       submenu: [
         { label: "New Note", accelerator: "CmdOrCtrl+N", click: () => navigateTo("/dashboard/note/new") },
+        { type: "separator" },
+        { label: "Sign In with Your Browser…", click: () => beginBrowserSignIn() },
         { type: "separator" },
         isMac ? { role: "close" } : { role: "quit" },
       ],

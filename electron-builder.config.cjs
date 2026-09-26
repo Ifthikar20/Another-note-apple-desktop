@@ -21,6 +21,8 @@ module.exports = {
   },
   files: ["dist/**/*", "static/**/*", "package.json"],
   asar: true,
+  // The link that brings a browser sign-in back into the app (src/main/auth.ts).
+  protocols: { name: "AnotherNotes", schemes: ["anothernotes"] },
   publish: {
     provider: "github",
     owner: "Ifthikar20",

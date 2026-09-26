@@ -8,11 +8,19 @@ import {
   type MenuItemConstructorOptions,
 } from "electron";
 import path from "node:path";
-import { APP_ORIGIN, APP_URL, WEBSITE_URL } from "./config";
+import { APP_ORIGIN, APP_URL } from "./config";
 import { openExternal } from "./links";
 import { loadWindowState, saveWindowState } from "./store";
 
 let mainWindow: BrowserWindow | null = null;
+
+/** Set by index.ts: starts the sign-in through the browser (auth.ts), without a circular import. */
+let browserSignIn: () => void = () => undefined;
+export function setBrowserSignIn(start: () => void): void {
+  browserSignIn = start;
+}
+
+export type FirstPage = "app" | "welcome";
 
 /**
  * Google refuses to sign in from inside an Electron window (its "disallowed_useragent"
@@ -73,7 +81,7 @@ export function navigateTo(pathname: string): void {
   void focusMainWindow().loadURL(new URL(pathname, APP_ORIGIN).toString());
 }
 
-export function createMainWindow(): BrowserWindow {
+export function createMainWindow(first: FirstPage = "app"): BrowserWindow {
   const state = loadWindowState();
   const win = new BrowserWindow({
     x: state.x,
@@ -158,23 +166,29 @@ export function createMainWindow(): BrowserWindow {
     if (mainWindow === win) mainWindow = null;
   });
 
-  void win.loadURL(APP_URL);
+  if (first === "welcome") showWelcome(win);
+  else void win.loadURL(APP_URL);
   return win;
+}
+
+/** The native welcome screen: sign in through the browser, or here in the window. */
+export function showWelcome(win: BrowserWindow = focusMainWindow()): void {
+  void win.loadFile(path.join(app.getAppPath(), "static", "welcome.html"));
 }
 
 function explainGoogleSignIn(win: BrowserWindow): void {
   void dialog
     .showMessageBox(win, {
       type: "info",
-      message: "Google sign-in isn't available in the desktop app yet",
+      message: "Sign in with Google in your browser",
       detail:
-        "Google blocks signing in from inside desktop app windows. Sign in with your email and password for now, or use AnotherNotes in your browser.",
-      buttons: ["OK", "Open in Browser"],
+        "Google doesn't allow signing in inside desktop app windows. Continue in your browser, where you're probably signed in already, and you'll come straight back here.",
+      buttons: ["Continue with your browser", "Not now"],
       defaultId: 0,
-      cancelId: 0,
+      cancelId: 1,
     })
     .then(({ response }) => {
-      if (response === 1) openExternal(`${WEBSITE_URL}/auth`);
+      if (response === 0) browserSignIn();
     });
 }
 

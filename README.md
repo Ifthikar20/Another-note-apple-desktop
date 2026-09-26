@@ -1,11 +1,10 @@
 # AnotherNotes for the desktop
 
 The AnotherNotes web app in a window of its own: a dock icon, native menus and
-shortcuts, a remembered window, links that open in your browser, the microphone, and
-updates that install themselves. This is "v0" of the desktop plan: the window loads
-the live site at `https://anothernote.app`, so nothing in the web app or the API changes
-for it. The packaged renderer, keychain sign-in, quick capture and offline reading come
-next (see *What comes next*).
+shortcuts, a remembered window, links that open in your browser, the microphone, sign-in
+through your browser, and updates that install themselves. This is "v0" of the desktop
+plan: the window loads the live site at `https://anothernote.app`. The packaged renderer,
+keychain sign-in, quick capture and offline reading come next (see *What comes next*).
 
 ## Running the app
 
@@ -14,8 +13,11 @@ and Intel. The app needs an internet connection: it is the website, in a window.
 
 1. Download `AnotherNotes-<version>-universal.dmg` from the repository's Releases page.
 2. Open it and drag **AnotherNotes** onto **Applications**.
-3. Open AnotherNotes from Applications or Spotlight and sign in with your email and
-   password, or a child's username and PIN.
+3. Open AnotherNotes from Applications or Spotlight. The welcome screen offers two ways
+   in: **Continue with your browser** signs you in on anothernote.app in your browser
+   (Google, Microsoft, email, or a child's PIN) and brings you straight back; **Sign in
+   here** shows the web app's own sign-in page in the window, for email and password or
+   a PIN.
 
 If the build was not signed and notarised (see below), macOS says the app "cannot be
 opened because Apple cannot check it". Right-click the app, choose **Open**, then
@@ -56,7 +58,8 @@ To run it without packaging, or against a local copy of the web app:
 
 ```sh
 npm start                                            # the live site
-ANOTHERNOTES_URL=http://localhost:8080 npm start     # the web app's vite dev server
+ANOTHERNOTES_URL=http://localhost:8080 \
+ANOTHERNOTES_API_URL=http://localhost:8010/api npm start   # the web app's dev server + a local API
 ```
 
 `npm run pack` builds the `.app` into `release/mac-universal/` without a DMG, for a
@@ -106,16 +109,54 @@ Installed apps check the published releases on start and every four hours, downl
 the next version in the background, and ask before restarting. The version comes from
 `package.json`; bump it before tagging.
 
+## Signing in through the browser
+
+Google refuses to sign in inside an Electron window, and the browser is where a student
+is usually signed in already. So the app can send them there and take the session back:
+
+```
+ desktop app                       browser: anothernote.app                identity API
+ ───────────                       ────────────────────────                ────────────
+ state + PKCE secret (auth.ts)
+ opens /desktop/sign-in?state&challenge ─▶ sign in as usual (any method)
+                                          POST /api/auth/desktop/handoff ─▶ one-time code, 2 minutes,
+                                            {state, code_challenge}          bound to the challenge
+                                          anothernotes://auth/callback?code&state
+ ◀── the OS hands the link to the app
+ window loads /api/auth/desktop/exchange?code&state&code_verifier ────────▶ sha256(verifier) == challenge,
+                                                                            burn the code, set the refresh
+                                                                            cookie in the app's own jar,
+                                                                            redirect to /auth/callback#token
+ signed in, on the dashboard
+```
+
+The secret never leaves the app, so a link seen on the way (a log, another app that
+registered the scheme) cannot be exchanged. The browser's own session is untouched.
+The web app and the API halves live in the web and backend repos (`/desktop/sign-in`,
+`identity/accounts/desktop.py`).
+
+Ways to start it: the welcome screen, **File → Sign In with Your Browser…**, the Google
+button on the web app's sign-in page (the web app sees `window.anothernotes` and asks the
+app), and the dialog the app shows if a page tries to reach Google's sign-in anyway.
+
+The link works because the app is registered for the `anothernotes://` scheme
+(`protocols` in the builder config puts it in `Info.plist`). macOS only routes the scheme
+to a packaged app, so to try the whole round trip in development run `npm run pack` and
+open `release/mac-universal/AnotherNotes.app` once; `npm start` alone can test everything
+up to the link.
+
 ## Layout
 
 ```
-src/main/index.ts       app lifecycle: single instance, permissions, the client header
-src/main/windows.ts     the main window, remembered bounds, navigation rules, context menu
+src/main/index.ts       app lifecycle: single instance, permissions, the client header, deep links, IPC
+src/main/auth.ts        sign-in through the browser: state + PKCE, the anothernotes:// link, the exchange
+src/main/windows.ts     the main window, welcome screen, remembered bounds, navigation rules, context menu
 src/main/menu.ts        native menus and shortcuts (New Note, Go, Reload, zoom, updates)
 src/main/updater.ts     electron-updater against the GitHub Releases feed
 src/main/store.ts       window-state.json in the app's data folder
 src/main/config.ts      the app URL, ANOTHERNOTES_URL override, the client header
-src/preload/index.ts    window.anothernotes = { platform, version }; nothing else
+src/preload/index.ts    window.anothernotes = { platform, version, auth }; three fixed calls, nothing else
+static/welcome.html     the native welcome screen: continue with your browser, or sign in here
 static/offline.html     shown when the site cannot be reached; retries on its own
 build/icon.png          the app icon (the web app's an-logo.svg at 1024 px)
 build/entitlements.mac.plist   hardened runtime + microphone
@@ -130,9 +171,9 @@ the desktop apart.
 
 ## Known limits of v0
 
-- **Google sign-in** is refused by Google inside desktop app windows. The app explains
-  and suggests email and password. Microsoft sign-in, SAML through WorkOS and
-  "connect a note source" round-trip inside the window and work as on the web.
+- **Google sign-in** happens in your browser (above), never in the window, because
+  Google refuses it there. Microsoft sign-in and "connect a note source" round-trip
+  inside the window as on the web; SAML goes through the browser too.
 - **Nothing works offline** beyond the "can't reach AnotherNotes" page; the app is the
   website.
 - **Auto-update needs a signed build.**
@@ -143,9 +184,7 @@ the desktop apart.
 
 In order, from the desktop architecture note in the web repo:
 
-1. **Sign-in through the system browser** for Google and Microsoft: the API redirects
-   to `anothernotes://auth/callback` with a one-time code the app exchanges for tokens.
-2. **The packaged renderer**: the web app's `dist/` shipped inside the app, with the
+1. **The packaged renderer**: the web app's `dist/` shipped inside the app, with the
    refresh token in the macOS keychain, an instant start and read-only offline.
-3. Quick capture from anywhere, deep links, file associations, reminders, media keys,
-   and a disk cache for the tutor's voice clips.
+2. Quick capture from anywhere, deep links into notes and lessons, file associations,
+   reminders, media keys, and a disk cache for the tutor's voice clips.
