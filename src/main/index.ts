@@ -1,9 +1,25 @@
 import { app, BrowserWindow, ipcMain, session, systemPreferences, type IpcMainInvokeEvent } from "electron";
 import { beginBrowserSignIn, cancelBrowserSignIn, deepLinksIn, handleDeepLink, registerProtocol } from "./auth";
-import { API_ORIGIN, APP_ORIGIN, CLIENT_HEADER, SESSION_COOKIE, SESSION_COOKIE_URL, WEBSITE_URL } from "./config";
+import {
+  API_ORIGIN,
+  API_URL,
+  APP_ORIGIN,
+  APP_URL,
+  BUNDLED,
+  CLIENT_HEADER,
+  originOf,
+  PREVIEW_COOKIE,
+  PREVIEW_KEY,
+  SESSION_COOKIE,
+  SESSION_COOKIE_URL,
+  SITE_ORIGIN,
+  WEBSITE_URL,
+} from "./config";
 import { installMenu } from "./menu";
+import { installRenderer, registerAppScheme, rendererBuild } from "./renderer";
+import { installSignIn } from "./signin";
 import { installUpdater } from "./updater";
-import { createMainWindow, focusMainWindow, getMainWindow, setBrowserSignIn } from "./windows";
+import { createMainWindow, focusMainWindow, getMainWindow, setBrowserSignIn, showSignIn } from "./windows";
 
 /*
   AnotherNotes for the desktop, v0: the live web app in a window of its own.
@@ -15,6 +31,7 @@ import { createMainWindow, focusMainWindow, getMainWindow, setBrowserSignIn } fr
 */
 
 app.setAppUserModelId("app.anothernote.desktop");
+registerAppScheme();
 
 // Links the OS hands us before the window exists (a cold start from a link).
 let queuedLinks: string[] = deepLinksIn(process.argv);
@@ -49,6 +66,14 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(async () => {
+    // The first thing to check when the window shows the wrong site: which addresses this
+    // build resolved. ANOTHERNOTES_URL and ANOTHERNOTES_API_URL change them (config.ts).
+    console.log(
+      `[anothernotes] v${app.getVersion()} electron=${process.versions.electron} ` +
+        (BUNDLED ? `renderer=bundled (${rendererBuild()}) ` : "renderer=site ") +
+        `app=${APP_URL} api=${API_URL}`,
+    );
+    if (BUNDLED) installRenderer();
     app.setAboutPanelOptions({
       applicationName: "AnotherNotes",
       applicationVersion: app.getVersion(),
@@ -62,7 +87,7 @@ if (!app.requestSingleInstanceLock()) {
     session.defaultSession.setPermissionRequestHandler((_contents, permission, callback, details) => {
       let origin = "";
       try {
-        origin = new URL(details.requestingUrl).origin;
+        origin = originOf(details.requestingUrl);
       } catch {
         /* no origin: refused below */
       }
@@ -79,10 +104,14 @@ if (!app.requestSingleInstanceLock()) {
       callback(permission === "clipboard-sanitized-write" || permission === "fullscreen" || permission === "notifications");
     });
 
-    // Tell the API which client this is, on every request to the app and to the API.
-    const origins = [...new Set([APP_ORIGIN, API_ORIGIN])].map((origin) => `${origin}/*`);
+    // Tell the API which client this is, on every request to the site and to the API.
+    const origins = [...new Set([SITE_ORIGIN, API_ORIGIN])].map((origin) => `${origin}/*`);
     session.defaultSession.webRequest.onBeforeSendHeaders({ urls: origins }, (details, callback) => {
       details.requestHeaders["X-AnotherNotes-Client"] = CLIENT_HEADER;
+      if (details.resourceType === "mainFrame") {
+        const sent = /(^|;\s*)an_preview=[^;]+/.test(details.requestHeaders.Cookie ?? "");
+        console.log(`[anothernotes] GET ${details.url} gateKey=${sent ? "sent" : "not sent"}`);
+      }
       callback({ requestHeaders: details.requestHeaders });
     });
 
@@ -92,7 +121,7 @@ if (!app.requestSingleInstanceLock()) {
       if (cookie.name === SESSION_COOKIE) void session.defaultSession.cookies.flushStore();
     });
 
-    // The bridge's few calls, from the app's own pages only (the welcome screen is a
+    // The bridge's few calls, from the app's own pages only (the sign-in screen is a
     // file of ours; the web app is the app's origin).
     const trusted = (event: IpcMainInvokeEvent): boolean => {
       const url = event.senderFrame?.url ?? "";
@@ -104,20 +133,61 @@ if (!app.requestSingleInstanceLock()) {
     });
     ipcMain.handle("auth:sign-in-here", (event) => {
       if (!trusted(event)) throw new Error("not allowed");
-      void focusMainWindow().loadURL(`${APP_ORIGIN}/auth`);
+      showSignIn();
     });
+    installSignIn(trusted);
     ipcMain.handle("auth:cancel-browser-sign-in", (event) => {
       if (!trusted(event)) throw new Error("not allowed");
       cancelBrowserSignIn();
     });
 
+    if (PREVIEW_KEY) await unlockMaintenanceGate(PREVIEW_KEY);
+    console.log(
+      `[anothernotes] profile=${app.getPath("userData")} gateKey=${await gateKeyState()}`,
+    );
+
     installMenu();
-    createMainWindow((await hasSession()) ? "app" : "welcome");
+    // After the loading screen: the web app when there is a session, the app's own
+    // sign-in screen when there is not (signin.ts).
+    createMainWindow((await hasSession()) ? "app" : "signin");
     installUpdater();
 
     for (const link of queuedLinks) handleDeepLink(link);
     queuedLinks = [];
   });
+}
+
+/** Store the maintenance gate's team key in the app's own cookie jar, for 30 days. */
+async function unlockMaintenanceGate(key: string): Promise<void> {
+  try {
+    await session.defaultSession.cookies.set({
+      url: SITE_ORIGIN,
+      name: PREVIEW_COOKIE,
+      value: encodeURIComponent(key),
+      path: "/",
+      sameSite: "lax",
+      secure: SITE_ORIGIN.startsWith("https:"),
+      expirationDate: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30,
+    });
+    await session.defaultSession.cookies.flushStore();
+    console.log(`[anothernotes] maintenance gate: ${PREVIEW_COOKIE} cookie stored for ${SITE_ORIGIN}`);
+  } catch (e) {
+    console.warn("[anothernotes] maintenance gate: could not store the cookie:", e);
+  }
+}
+
+/**
+ * Is the maintenance gate's key in the cookie jar, and readable? Cookies are encrypted
+ * with a key in the macOS Keychain; a build that cannot read that item sees empty values.
+ */
+async function gateKeyState(): Promise<string> {
+  try {
+    const cookies = await session.defaultSession.cookies.get({ url: SITE_ORIGIN, name: PREVIEW_COOKIE });
+    if (cookies.length === 0) return "none";
+    return cookies[0].value ? `stored (${cookies[0].value.length} chars)` : "stored but unreadable (empty value)";
+  } catch {
+    return "none";
+  }
 }
 
 /** Is there a refresh cookie for the API in this app's cookie jar? Then the site opens signed in. */

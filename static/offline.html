@@ -22,8 +22,10 @@
         button { background: #f5f1ea; color: #1e1e1e; }
       }
     </style>
+    <style>.titlebar { position: fixed; top: 0; left: 0; right: 0; height: 40px; -webkit-app-region: drag; z-index: 10; }</style>
   </head>
   <body>
+    <div class="titlebar" aria-hidden="true"></div>
     <div class="card">
       <h1>Can't reach AnotherNotes</h1>
       <p id="why">Check your internet connection. This page tries again on its own.</p>
@@ -34,6 +36,8 @@
         var q = new URLSearchParams(location.search);
         var url = q.get("url") || "https://anothernote.app/dashboard";
         var why = q.get("why");
+        var title = q.get("title");
+        if (title) document.querySelector("h1").textContent = title;
         if (why) document.getElementById("why").textContent = why + ". This page tries again on its own.";
         var retry = function () { location.href = url; };
         document.getElementById("retry").addEventListener("click", retry);

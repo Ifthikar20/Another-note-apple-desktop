@@ -19,7 +19,7 @@ module.exports = {
     output: "release",
     buildResources: "build",
   },
-  files: ["dist/**/*", "static/**/*", "package.json"],
+  files: ["dist/**/*", "static/**/*", "renderer/**/*", "package.json"],
   asar: true,
   // The link that brings a browser sign-in back into the app (src/main/auth.ts).
   protocols: { name: "AnotherNotes", schemes: ["anothernotes"] },

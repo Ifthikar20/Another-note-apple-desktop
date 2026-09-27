@@ -1,5 +1,9 @@
 node_modules/
 dist/
+release
 release/
 *.log
 .DS_Store
+# The web app's build and checkout (scripts/build-renderer.sh)
+renderer/
+.web/

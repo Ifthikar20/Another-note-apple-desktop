@@ -1,9 +1,9 @@
 import { app, dialog } from "electron";
 import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
-import { API_URL, APP_ORIGIN } from "./config";
+import { API_URL, APP_ORIGIN, BUNDLED, SITE_ORIGIN } from "./config";
 import { openExternal } from "./links";
-import { focusMainWindow } from "./windows";
+import { focusMainWindow, loadInActiveTab } from "./windows";
 
 /*
   Signing in through the browser.
@@ -44,7 +44,7 @@ export function beginBrowserSignIn(): void {
   const verifier = b64url(randomBytes(32));
   const challenge = b64url(createHash("sha256").update(verifier).digest());
   pending = { state, verifier, startedAt: Date.now() };
-  const url = new URL("/desktop/sign-in", APP_ORIGIN);
+  const url = new URL("/desktop/sign-in", SITE_ORIGIN);
   url.searchParams.set("state", state);
   url.searchParams.set("challenge", challenge);
   openExternal(url.toString());
@@ -74,7 +74,9 @@ export function exchangeUrlFor(raw: string): string | null {
   pending = null;
   if (!current || Date.now() - current.startedAt > PENDING_TTL_MS) return null;
   if (state !== current.state || !TOKEN.test(code)) return null;
-  const exchange = new URL(`${API_URL}/auth/desktop/exchange`);
+  // With the bundled renderer the exchange goes through the app's origin (renderer.ts
+  // forwards it and brings the redirect to /auth/callback back into the bundle).
+  const exchange = new URL(BUNDLED ? `${APP_ORIGIN}/api/auth/desktop/exchange` : `${API_URL}/auth/desktop/exchange`);
   exchange.searchParams.set("code", code);
   exchange.searchParams.set("state", state);
   exchange.searchParams.set("code_verifier", current.verifier);
@@ -87,7 +89,7 @@ export function handleDeepLink(raw: string): void {
   const win = focusMainWindow();
   const exchange = exchangeUrlFor(raw);
   if (exchange) {
-    void win.loadURL(exchange);
+    loadInActiveTab(exchange);
     return;
   }
   if (new URL(raw).hostname !== "auth") return;

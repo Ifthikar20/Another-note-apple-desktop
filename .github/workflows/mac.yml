@@ -9,6 +9,7 @@
 #   APPLE_ID              the Apple ID that owns the certificate
 #   APPLE_APP_SPECIFIC_PASSWORD   an app-specific password for that Apple ID
 #   APPLE_TEAM_ID         the 10-character team ID
+#   WEB_REPO_TOKEN        read access to playstudy-card-dash if it is private (its build goes inside the app)
 name: Build macOS app
 
 on:
@@ -31,6 +32,19 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # The web app's build goes inside the app (README: how it is put together). If the
+      # web repo is private, WEB_REPO_TOKEN is a token that can read it (a fine-grained
+      # PAT with Contents: read on playstudy-card-dash); a public repo needs none.
+      - name: Check out the web app
+        uses: actions/checkout@v4
+        with:
+          repository: Ifthikar20/playstudy-card-dash
+          token: ${{ secrets.WEB_REPO_TOKEN || github.token }}
+          path: .web
+
+      - name: Build the web app into renderer/
+        run: scripts/build-renderer.sh
 
       - name: Build and package
         env:

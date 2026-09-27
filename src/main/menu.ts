@@ -3,11 +3,17 @@ import { beginBrowserSignIn } from "./auth";
 import { WEBSITE_URL } from "./config";
 import { openExternal } from "./links";
 import { checkForUpdates } from "./updater";
-import { getMainWindow, navigateTo } from "./windows";
+import { activeContents, closeActiveTab, navigateTo, newTab, selectAdjacentTab } from "./windows";
 
 const isMac = process.platform === "darwin";
 
-const contents = () => getMainWindow()?.webContents;
+/** The menus act on the page in the active tab, not the window's toolbar. */
+const contents = activeContents;
+
+function zoom(step: number): void {
+  const wc = contents();
+  if (wc) wc.setZoomLevel(step === 0 ? 0 : wc.getZoomLevel() + step * 0.5);
+}
 
 function goBack(): void {
   const wc = contents();
@@ -54,11 +60,13 @@ export function installMenu(): void {
     ? [{ role: "pasteAndMatchStyle" }, { role: "delete" }, { role: "selectAll" }]
     : [{ role: "delete" }, { type: "separator" }, { role: "selectAll" }];
 
-  const devTools: MenuItemConstructorOptions[] = app.isPackaged ? [] : [{ role: "toggleDevTools" }];
+  const devTools: MenuItemConstructorOptions[] = app.isPackaged
+    ? []
+    : [{ label: "Toggle Developer Tools", accelerator: "Alt+CmdOrCtrl+I", click: () => contents()?.toggleDevTools() }];
 
   const windowExtras: MenuItemConstructorOptions[] = isMac
     ? [{ type: "separator" }, { role: "front" }]
-    : [{ role: "close" }];
+    : [];
 
   const helpExtras: MenuItemConstructorOptions[] = isMac
     ? []
@@ -69,11 +77,13 @@ export function installMenu(): void {
     {
       label: "File",
       submenu: [
-        { label: "New Note", accelerator: "CmdOrCtrl+N", click: () => navigateTo("/dashboard/note/new") },
+        { label: "New Note", accelerator: "CmdOrCtrl+N", click: () => newTab() },
+        { label: "New Note in Tab", accelerator: "CmdOrCtrl+T", visible: false, click: () => newTab() },
         { type: "separator" },
         { label: "Sign In with Your Browser…", click: () => beginBrowserSignIn() },
         { type: "separator" },
-        isMac ? { role: "close" } : { role: "quit" },
+        { label: "Close Tab", accelerator: "CmdOrCtrl+W", click: () => closeActiveTab() },
+        ...(isMac ? [] : [{ role: "quit" } as MenuItemConstructorOptions]),
       ],
     },
     {
@@ -91,13 +101,13 @@ export function installMenu(): void {
     {
       label: "View",
       submenu: [
-        { role: "reload" },
-        { role: "forceReload" },
+        { label: "Reload", accelerator: "CmdOrCtrl+R", click: () => contents()?.reload() },
+        { label: "Force Reload", accelerator: "Shift+CmdOrCtrl+R", click: () => contents()?.reloadIgnoringCache() },
         ...devTools,
         { type: "separator" },
-        { role: "resetZoom" },
-        { role: "zoomIn" },
-        { role: "zoomOut" },
+        { label: "Actual Size", accelerator: "CmdOrCtrl+0", click: () => zoom(0) },
+        { label: "Zoom In", accelerator: "CmdOrCtrl+Plus", click: () => zoom(1) },
+        { label: "Zoom Out", accelerator: "CmdOrCtrl+-", click: () => zoom(-1) },
         { type: "separator" },
         { role: "togglefullscreen" },
       ],
@@ -116,7 +126,16 @@ export function installMenu(): void {
     },
     {
       label: "Window",
-      submenu: [{ role: "minimize" }, { role: "zoom" }, ...windowExtras],
+      submenu: [
+        { role: "minimize" },
+        { role: "zoom" },
+        { type: "separator" },
+        { label: "Show Next Tab", accelerator: "Ctrl+Tab", click: () => selectAdjacentTab(1) },
+        { label: "Show Previous Tab", accelerator: "Ctrl+Shift+Tab", click: () => selectAdjacentTab(-1) },
+        { label: "Next Tab", accelerator: "CmdOrCtrl+Shift+]", visible: false, click: () => selectAdjacentTab(1) },
+        { label: "Previous Tab", accelerator: "CmdOrCtrl+Shift+[", visible: false, click: () => selectAdjacentTab(-1) },
+        ...windowExtras,
+      ],
     },
     {
       role: "help",

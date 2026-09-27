@@ -1,10 +1,37 @@
 # AnotherNotes for the desktop
 
-The AnotherNotes web app in a window of its own: a dock icon, native menus and
-shortcuts, a remembered window, links that open in your browser, the microphone, sign-in
-through your browser, and updates that install themselves. This is "v0" of the desktop
-plan: the window loads the live site at `https://anothernote.app`. The packaged renderer,
-keychain sign-in, quick capture and offline reading come next (see *What comes next*).
+The AnotherNotes app for the Mac: the web app's interface, packaged inside the app and
+served from the app's own origin, talking to the AnotherNotes API. Plus what a browser
+tab cannot give it: a dock icon, native menus and shortcuts, a remembered window, links
+that open in your browser, the microphone, its own signed-in session, a loading screen,
+and updates that install themselves.
+
+How it is put together:
+
+```
+ AnotherNotes.app
+ ├─ renderer/          the web app's production build (playstudy-card-dash, `vite build`)
+ │                     served at app://anothernotes/…  (src/main/renderer.ts)
+ ├─ /api, /img         forwarded to the server with the app's own cookie jar, so the
+ │                     web app's relative /api works unchanged and the refresh cookie
+ │                     (httpOnly, SameSite=Strict) behaves as on the site
+ └─ main process       window, menus, sign-in, updater  (src/main/*.ts)
+```
+
+The window is a Mac app's, not a browser's. There is no title bar: as in Notion, the web
+app's sidebar runs the full height with the window buttons on it, and the app's own tab
+bar sits over the content column, starting where the sidebar ends and following it as it
+is resized or folded. Tabs are for notes and learning sessions only, named after the
+note (as its title is typed). The dashboard, folders, calendar and profile live in one
+home page behind the tabs, shown from the sidebar or the Go menu, never as a tab.
+Opening a note or session from anywhere gives it a tab, or brings its tab forward, and
+leaves the page it was opened from as it was. The + button and ⌘N start a new note in
+a tab, ⌘W closes a note's tab (the last one returns to the home page), Ctrl-Tab moves
+between the home page and the notes.
+
+The interface opens instantly from disk; only data crosses the network. A checkout
+without `renderer/` falls back to loading the site in the window, which is how the first
+version worked and still handy for a quick look (`scripts/run-mac.sh --site`).
 
 ## Running the app
 
@@ -13,17 +40,43 @@ and Intel. The app needs an internet connection: it is the website, in a window.
 
 1. Download `AnotherNotes-<version>-universal.dmg` from the repository's Releases page.
 2. Open it and drag **AnotherNotes** onto **Applications**.
-3. Open AnotherNotes from Applications or Spotlight. The welcome screen offers two ways
-   in: **Continue with your browser** signs you in on anothernote.app in your browser
-   (Google, Microsoft, email, or a child's PIN) and brings you straight back; **Sign in
-   here** shows the web app's own sign-in page in the window, for email and password or
-   a PIN.
+3. Open AnotherNotes from Applications or Spotlight. After a short loading screen the
+   app shows its own sign-in screen: an email and password, a child's username and PIN,
+   or **Continue with Google or Microsoft**, which signs you in through your browser and
+   brings you straight back. The account is the same as on the website, and everything
+   syncs, because it is the same API.
 
 If the build was not signed and notarised (see below), macOS says the app "cannot be
 opened because Apple cannot check it". Right-click the app, choose **Open**, then
 **Open** again. macOS remembers the choice.
 
 The first time you press Dictate or talk to the tutor, macOS asks for the microphone.
+
+## One command: build and run
+
+`scripts/run-mac.sh` (also `npm run mac`) does the whole thing: picks Node 22 through nvm,
+installs dependencies if they are missing, builds the web app into `renderer/` when it is
+not there yet, keeps the build output out of iCloud Drive (codesign rejects files iCloud
+has touched), quits a copy that is already running, builds the `.app`, and starts it with
+its logs in the terminal. Ctrl-C quits the app.
+
+```sh
+scripts/run-mac.sh                          # against anothernote.app
+scripts/run-mac.sh http://100.49.56.40/     # against a test server
+scripts/run-mac.sh --dev http://100.49.56.40/   # from source, no .app: fastest
+scripts/run-mac.sh --renderer               # rebuild the web app bundle first
+scripts/run-mac.sh --site                   # load the site in the window, no bundle
+scripts/run-mac.sh --dist                   # also build the universal .dmg
+scripts/run-mac.sh --key http://100.49.56.40/   # ask for the maintenance-gate key first
+```
+
+The web app comes from `scripts/build-renderer.sh`: it clones (or updates) the
+`playstudy-card-dash` repo into `.web/`, runs its `build:off` profile (Turnstile off, API
+at the relative `/api`, the same as the deployed site), and copies `dist/` to
+`renderer/`. Point it at a checkout you already have with `ANOTHERNOTES_WEB_DIR=…`, or at
+a branch with `ANOTHERNOTES_WEB_REF=…`. `renderer/BUILD` records the commit, and the app
+prints it at start-up. Whenever the web app changes, run it again; the Mac app carries
+the build it was packaged with.
 
 ## Building the DMG
 
@@ -61,6 +114,19 @@ npm start                                            # the live site
 ANOTHERNOTES_URL=http://localhost:8080 \
 ANOTHERNOTES_API_URL=http://localhost:8010/api npm start   # the web app's dev server + a local API
 ```
+
+While the site is behind its maintenance gate (nginx answers "Back soon" with a 503 unless
+the `an_preview` cookie holds the team key), give the app the key once and it keeps it
+for 30 days, in its own profile:
+
+```sh
+ANOTHERNOTES_URL=http://100.49.56.40/ ANOTHERNOTES_PREVIEW_KEY='the team key' npm start
+```
+
+The app never shows the gate's "Back soon" page itself: a 503 is dropped before it
+renders, and the app's own "being updated" page waits and retries every 15 seconds. The
+terminal says which page was gated. For the packaged app, run
+the binary from a terminal the same way (see *Running the app*).
 
 `npm run pack` builds the `.app` into `release/mac-universal/` without a DMG, for a
 quick look.
@@ -109,6 +175,34 @@ Installed apps check the published releases on start and every four hours, downl
 the next version in the background, and ask before restarting. The version comes from
 `package.json`; bump it before tagging.
 
+## Signing in
+
+The desktop has its own sign-in screen (`static/signin.html`), not the website's. It
+signs in against the same endpoints the website uses, from the main process
+(`src/main/signin.ts`):
+
+```
+ sign-in screen ──ipc──▶ main process: POST /api/auth/login  (or /auth/child/login)
+                         with the app's cookie jar: the refresh cookie the API sets
+                         (httpOnly, /api/auth/) is stored for the server
+                ◀─────── {access_token}
+ window ──▶ /auth/callback#token=…&next=/dashboard
+            the web app's own page for adopting a token, as after a Google sign-in
+```
+
+The password goes from the screen to the API and nowhere else; the web app never sees
+it. Whenever the web app sends someone to its own sign-in pages (`/auth`, `/kids`: a
+signed-out visit, or signing out), the window shows the app's screen instead, and the
+website's landing page is skipped for the dashboard.
+
+The server's cookies are handled by the app itself (`src/main/server.ts`) for every
+request to the server, the sign-in above and the web app's `/api` alike. They live in
+the app's cookie jar with the attributes the server gave them, with one exception: on a
+plain http server (a test box without a domain yet) the API's Secure flag is dropped,
+because Chromium would otherwise refuse the refresh cookie and the app would forget the
+session after 15 minutes. The terminal prints each cookie the app stores or removes, by
+name, never by value, and `session cookie stored` after a sign-in.
+
 ## Signing in through the browser
 
 Google refuses to sign in inside an Electron window, and the browser is where a student
@@ -135,7 +229,7 @@ registered the scheme) cannot be exchanged. The browser's own session is untouch
 The web app and the API halves live in the web and backend repos (`/desktop/sign-in`,
 `identity/accounts/desktop.py`).
 
-Ways to start it: the welcome screen, **File → Sign In with Your Browser…**, the Google
+Ways to start it: **Continue with Google or Microsoft** on the sign-in screen, **File → Sign In with Your Browser…**, the Google
 button on the web app's sign-in page (the web app sees `window.anothernotes` and asks the
 app), and the dialog the app shows if a page tries to reach Google's sign-in anyway.
 
@@ -172,16 +266,24 @@ signal.
 
 ```
 src/main/index.ts       app lifecycle: single instance, permissions, the client header, deep links, IPC
+src/main/signin.ts      the app's own sign-in: email and password, or a child's PIN, against the API
 src/main/auth.ts        sign-in through the browser: state + PKCE, the anothernotes:// link, the exchange
-src/main/windows.ts     the main window, welcome screen, remembered bounds, navigation rules, context menu
+src/main/renderer.ts    the bundled web app at app://anothernotes, and /api forwarded to the server
+src/main/server.ts      requests to the server, with the app keeping the server's cookies itself
+src/main/windows.ts     the main window: tab bar and tabs, loading screen, sign-in routing, navigation rules
 src/main/media.ts       the display stays awake while the window plays sound
 src/main/menu.ts        native menus and shortcuts (New Note, Go, Reload, zoom, updates)
 src/main/updater.ts     electron-updater against the GitHub Releases feed
 src/main/store.ts       window-state.json in the app's data folder
-src/main/config.ts      the app URL, ANOTHERNOTES_URL override, the client header
-src/preload/index.ts    window.anothernotes = { platform, version, auth }; three fixed calls, nothing else
-static/welcome.html     the native welcome screen: continue with your browser, or sign in here
-static/offline.html     shown when the site cannot be reached; retries on its own
+src/main/config.ts      the server, ANOTHERNOTES_URL override, bundled renderer or site, the client header
+src/preload/index.ts    window.anothernotes = { platform, version, auth }; reports the sidebar's edge for the tab bar
+src/preload/toolbar.ts  the tab bar's bridge: what to draw in, what was clicked out
+static/toolbar.html     the tab bar: back, forward, the tabs, new tab
+static/signin.html      the app's sign-in screen: email and password, a child's PIN, or the browser
+static/loading.html     the loading screen shown while the first page loads
+static/offline.html     shown when the server cannot be reached or is being updated; retries on its own
+scripts/run-mac.sh      build and run in one command (see above)
+scripts/build-renderer.sh  build the web app into renderer/
 build/icon.png          the app icon (the web app's an-logo.svg at 1024 px)
 build/entitlements.mac.plist   hardened runtime + microphone
 electron-builder.config.cjs    targets, signing, notarising, the update feed

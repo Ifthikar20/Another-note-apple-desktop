@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sign in to AnotherNotes</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f5f5f7; --card: #ffffff; --ink: #1d1d1f; --muted: #6e6e73; --accent: #0071e3; --on-accent: #fff;
+        --field: #ffffff; --field-border: rgba(0, 0, 0, .14); --focus: rgba(0, 113, 227, .35);
+        --pill: rgba(0, 0, 0, .06); --pill-active: #ffffff; --hair: rgba(0, 0, 0, .1); --danger: #d70015;
+        --shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 12px 40px rgba(0, 0, 0, .08);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1c1c1e; --card: #2c2c2e; --ink: #f5f5f7; --muted: #a1a1a6; --accent: #0a84ff;
+          --field: #1c1c1e; --field-border: rgba(255, 255, 255, .16); --focus: rgba(10, 132, 255, .45);
+          --pill: rgba(255, 255, 255, .08); --pill-active: #636366; --hair: rgba(255, 255, 255, .14); --danger: #ff453a;
+          --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 40px rgba(0, 0, 0, .35);
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; }
+      body {
+        margin: 0; display: flex; background: var(--bg); color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main { width: min(400px, calc(100% - 48px)); margin: auto; padding: 28px 0; animation: rise .45s ease-out both; }
+      header { text-align: center; -webkit-user-select: none; user-select: none; }
+      .logo { width: 72px; height: 72px; margin: 0 auto 18px; border-radius: 17px; box-shadow: 0 10px 28px rgba(0, 0, 0, .18); display: block; }
+      h1 { margin: 0 0 6px; font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+      .sub { margin: 0 0 22px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+      .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+      .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; margin-bottom: 18px; border-radius: 9px; background: var(--pill); -webkit-user-select: none; user-select: none; }
+      .tab { height: 28px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); font: inherit; font-size: 13px; font-weight: 500; cursor: default; }
+      .tab[aria-selected="true"] { background: var(--pill-active); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); font-weight: 600; }
+      form[hidden] { display: none; }
+      label { display: block; margin: 0 0 6px; font-size: 13px; font-weight: 500; color: var(--muted); }
+      .field + label { margin-top: 14px; }
+      .field {
+        display: block; width: 100%; height: 40px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--field-border);
+        background: var(--field); color: var(--ink); font: inherit; font-size: 15px; outline: none;
+        transition: border-color .15s, box-shadow .15s;
+      }
+      .field:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--focus); }
+      .pin { letter-spacing: .3em; }
+      .error { min-height: 20px; margin: 12px 0 4px; color: var(--danger); font-size: 13px; line-height: 1.4; }
+      .btn {
+        position: relative; display: flex; width: 100%; height: 42px; align-items: center; justify-content: center; gap: 8px;
+        border: 0; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 600; cursor: default;
+      }
+      .primary { background: var(--accent); color: var(--on-accent); }
+      .primary:active { filter: brightness(.9); }
+      .primary:disabled { opacity: .6; }
+      .secondary { background: var(--pill); color: var(--ink); }
+      .secondary:active { filter: brightness(.95); }
+      .btn .spin { display: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .45); border-top-color: #fff; animation: spin .8s linear infinite; }
+      .btn.busy .spin { display: block; }
+      .btn.busy .label { opacity: .85; }
+      .or { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--muted); font-size: 12px; -webkit-user-select: none; user-select: none; }
+      .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--hair); }
+      .hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
+      .waiting { display: none; text-align: center; }
+      body.is-waiting .choices { display: none; }
+      body.is-waiting .waiting { display: block; }
+      .spinner { width: 22px; height: 22px; margin: 6px auto 16px; border-radius: 50%; border: 2.5px solid var(--hair); border-top-color: var(--accent); animation: spin .9s linear infinite; }
+      .link { background: none; border: 0; padding: 8px 10px; color: var(--accent); font: inherit; font-size: 14px; cursor: default; }
+      footer { margin-top: 18px; text-align: center; color: var(--muted); font-size: 11px; -webkit-user-select: none; user-select: none; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      @keyframes shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(2px); } 30%, 50%, 70% { transform: translateX(-4px); } 40%, 60% { transform: translateX(4px); } }
+      .card.shake { animation: shake .4s; }
+      @media (prefers-reduced-motion: reduce) { main, .card.shake { animation: none; } }
+    </style>
+    <style>.titlebar { position: fixed; top: 0; left: 0; right: 0; height: 40px; -webkit-app-region: drag; z-index: 10; }</style>
+  </head>
+  <body>
+    <div class="titlebar" aria-hidden="true"></div>
+    <main>
+      <header>
+        <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AnotherNotes">
+  
+  <rect width="512" height="512" rx="116" fill="#1E1E1E"/>
+  
+  <path fill="#FFFFFF" d="M136 116a26 26 0 0 1 26-26h136l78 78v228a26 26 0 0 1-26 26H162a26 26 0 0 1-26-26V116Z"/>
+  <path fill="#FFFFFF" fill-opacity="0.45" d="M298 90l78 78h-60a18 18 0 0 1-18-18V90Z"/>
+  
+  <g fill="#1E1E1E">
+    <rect x="176" y="212" width="160" height="22" rx="11"/>
+    <rect x="176" y="264" width="160" height="22" rx="11"/>
+    <rect x="176" y="316" width="98" height="22" rx="11"/>
+  </g>
+</svg>
+        <h1>Sign in to AnotherNotes</h1>
+        <p class="sub">Your notes, lessons and flashcards, right where you left them.</p>
+      </header>
+
+      <div class="choices">
+        <div class="card" id="card">
+          <div class="tabs" role="tablist" aria-label="How to sign in">
+            <button class="tab" role="tab" id="tab-email" aria-controls="form-email" aria-selected="true" type="button">Email</button>
+            <button class="tab" role="tab" id="tab-pin" aria-controls="form-pin" aria-selected="false" type="button">Kid&rsquo;s PIN</button>
+          </div>
+
+          <form id="form-email" role="tabpanel" aria-labelledby="tab-email" novalidate>
+            <label for="email">Email</label>
+            <input class="field" id="email" name="email" type="email" autocomplete="username" spellcheck="false" required />
+            <label for="password">Password</label>
+            <input class="field" id="password" name="password" type="password" autocomplete="current-password" required />
+            <p class="error" role="alert"></p>
+            <button class="btn primary" type="submit"><span class="spin"></span><span class="label">Sign in</span></button>
+          </form>
+
+          <form id="form-pin" role="tabpanel" aria-labelledby="tab-pin" novalidate hidden>
+            <label for="username">Username</label>
+            <input class="field" id="username" name="username" type="text" autocomplete="username" spellcheck="false" autocapitalize="off" required />
+            <label for="pin">PIN</label>
+            <input class="field pin" id="pin" name="pin" type="password" inputmode="numeric" autocomplete="current-password" required />
+            <p class="error" role="alert"></p>
+            <button class="btn primary" type="submit"><span class="spin"></span><span class="label">Sign in</span></button>
+          </form>
+
+          <div class="or">or</div>
+          <button class="btn secondary" id="browser" type="button">Continue with Google or Microsoft</button>
+          <p class="hint">Opens your browser, where you&rsquo;re probably signed in already. You&rsquo;ll come straight back here.</p>
+        </div>
+      </div>
+
+      <div class="waiting">
+        <div class="spinner"></div>
+        <p class="sub">Finish signing in in your browser.<br />This window continues on its own.</p>
+        <button class="link" id="again" type="button">Open the browser again</button>
+        <button class="link" id="cancel" type="button">Cancel</button>
+      </div>
+
+      <footer id="server"></footer>
+    </main>
+    <script>
+      (function () {
+        var bridge = window.anothernotes && window.anothernotes.auth;
+        var body = document.body;
+        var card = document.getElementById("card");
+        var query = new URLSearchParams(location.search);
+        if (query.get("server")) document.getElementById("server").textContent = "Connected to " + query.get("server");
+
+        var store = {
+          get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+          set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+        };
+
+        var tabs = { email: document.getElementById("tab-email"), pin: document.getElementById("tab-pin") };
+        var forms = { email: document.getElementById("form-email"), pin: document.getElementById("form-pin") };
+        function select(which, focus) {
+          ["email", "pin"].forEach(function (k) {
+            tabs[k].setAttribute("aria-selected", String(k === which));
+            forms[k].hidden = k !== which;
+          });
+          store.set("signin.tab", which);
+          if (focus) {
+            var first = forms[which].querySelector(".field");
+            var next = first.value ? forms[which].querySelectorAll(".field")[1] : first;
+            next.focus();
+          }
+        }
+        tabs.email.addEventListener("click", function () { select("email", true); });
+        tabs.pin.addEventListener("click", function () { select("pin", true); });
+        document.getElementById("email").value = store.get("signin.email") || "";
+        document.getElementById("username").value = store.get("signin.username") || "";
+        select(store.get("signin.tab") === "pin" ? "pin" : "email", true);
+
+        if (!bridge || !bridge.signIn) {
+          document.querySelectorAll("button, input").forEach(function (el) { el.disabled = true; });
+          forms.email.querySelector(".error").textContent = "This page only works inside the AnotherNotes app.";
+          return;
+        }
+
+        function minutes(seconds) {
+          var m = Math.ceil(seconds / 60);
+          return m <= 1 ? "a minute" : m + " minutes";
+        }
+
+        function submit(form, send) {
+          form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            var error = form.querySelector(".error");
+            var button = form.querySelector(".primary");
+            var fields = form.querySelectorAll(".field");
+            for (var i = 0; i < fields.length; i++) {
+              if (!fields[i].value.trim()) {
+                error.textContent = "Fill in both fields to sign in.";
+                fields[i].focus();
+                return;
+              }
+            }
+            error.textContent = "";
+            button.disabled = true;
+            button.classList.add("busy");
+            send().then(function (result) {
+              if (result && result.ok) {
+                button.querySelector(".label").textContent = "Opening your notes…";
+                return;
+              }
+              var text = (result && result.error) || "Sign-in failed. Try again.";
+              if (result && result.lockedForSeconds) text += " Try again in " + minutes(result.lockedForSeconds) + ".";
+              error.textContent = text;
+              button.disabled = false;
+              button.classList.remove("busy");
+              card.classList.remove("shake");
+              void card.offsetWidth;
+              card.classList.add("shake");
+              var secret = fields[fields.length - 1];
+              secret.value = "";
+              secret.focus();
+            }, function () {
+              error.textContent = "Something went wrong. Try again.";
+              button.disabled = false;
+              button.classList.remove("busy");
+            });
+          });
+        }
+
+        submit(forms.email, function () {
+          var email = document.getElementById("email").value.trim();
+          store.set("signin.email", email);
+          return bridge.signIn({ email: email, password: document.getElementById("password").value });
+        });
+        submit(forms.pin, function () {
+          var username = document.getElementById("username").value.trim();
+          store.set("signin.username", username);
+          return bridge.signInWithPin({ username: username, pin: document.getElementById("pin").value.trim() });
+        });
+
+        function browser() { body.classList.add("is-waiting"); bridge.signInWithBrowser(); }
+        document.getElementById("browser").addEventListener("click", browser);
+        document.getElementById("again").addEventListener("click", browser);
+        document.getElementById("cancel").addEventListener("click", function () {
+          body.classList.remove("is-waiting");
+          bridge.cancelBrowserSignIn();
+        });
+      })();
+    </script>
+  </body>
+</html>

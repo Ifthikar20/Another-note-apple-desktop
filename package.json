@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "npm run build && electron .",
+    "mac": "scripts/run-mac.sh",
     "pack": "npm run build && electron-builder --dir --config electron-builder.config.cjs",
     "dist:mac": "npm run build && electron-builder --mac --publish never --config electron-builder.config.cjs",
     "dist:linux": "npm run build && electron-builder --linux --publish never --config electron-builder.config.cjs",

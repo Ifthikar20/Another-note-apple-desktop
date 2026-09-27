@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>AnotherNotes</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f5f5f7; --ink: #1d1d1f; --muted: #6e6e73; --accent: #0071e3; --hair: rgba(0, 0, 0, .1);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #1c1c1e; --ink: #f5f5f7; --muted: #a1a1a6; --accent: #0a84ff; --hair: rgba(255, 255, 255, .14); }
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0; display: grid; place-items: center; background: var(--bg); color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none;
+        -webkit-app-region: drag;
+      }
+      main { text-align: center; animation: rise .5s ease-out both; }
+      .logo { width: 92px; height: 92px; margin: 0 auto 22px; border-radius: 22px; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); display: block; animation: breathe 2.4s ease-in-out infinite; }
+      h1 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+      .sub { margin: 0 0 22px; color: var(--muted); font-size: 14px; }
+      .spinner {
+        width: 22px; height: 22px; margin: 0 auto; border-radius: 50%;
+        border: 2.5px solid var(--hair); border-top-color: var(--accent); animation: spin .9s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AnotherNotes">
+  
+  <rect width="512" height="512" rx="116" fill="#1E1E1E"/>
+  
+  <path fill="#FFFFFF" d="M136 116a26 26 0 0 1 26-26h136l78 78v228a26 26 0 0 1-26 26H162a26 26 0 0 1-26-26V116Z"/>
+  <path fill="#FFFFFF" fill-opacity="0.45" d="M298 90l78 78h-60a18 18 0 0 1-18-18V90Z"/>
+  
+  <g fill="#1E1E1E">
+    <rect x="176" y="212" width="160" height="22" rx="11"/>
+    <rect x="176" y="264" width="160" height="22" rx="11"/>
+    <rect x="176" y="316" width="98" height="22" rx="11"/>
+  </g>
+</svg>
+      <h1>AnotherNotes</h1>
+      <p class="sub">Getting your notes ready…</p>
+      <div class="spinner" role="progressbar" aria-label="Loading"></div>
+    </main>
+  </body>
+</html>
