@@ -1,7 +1,7 @@
 import { net, session } from "electron";
 
 /*
-  Requests from the app to the AnotherNotes server, with the app's own cookie handling.
+  Requests from the app to the AnotherNote server, with the app's own cookie handling.
 
   The server's cookies (the refresh cookie, the maintenance gate's key) live in the app's
   cookie jar, but this module reads and writes them itself instead of leaving it to

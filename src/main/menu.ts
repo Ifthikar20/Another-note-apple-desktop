@@ -141,7 +141,7 @@ export function installMenu(): void {
       role: "help",
       submenu: [
         { label: "Open This Page in Browser", click: openCurrentPageInBrowser },
-        { label: "AnotherNotes Website", click: () => openExternal(WEBSITE_URL) },
+        { label: "AnotherNote Website", click: () => openExternal(WEBSITE_URL) },
         ...helpExtras,
       ],
     },

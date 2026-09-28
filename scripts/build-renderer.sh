@@ -18,12 +18,27 @@ OUT="$ROOT/renderer"
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 
-if ! command -v node >/dev/null || [ "$(node -v | sed 's/^v\([0-9]*\).*/\1/')" -lt 22 ]; then
+# Node 22 or later, as in run-mac.sh: nvm and .nvmrc, with npm_config_prefix dropped for this
+# script (nvm refuses to run with it set), else the Node 22 nvm installed, found by its path.
+node_major() { node -v 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/'; }
+if [ "$(node_major)" -lt 22 ] 2>/dev/null || ! command -v node >/dev/null; then
+  unset npm_config_prefix NPM_CONFIG_PREFIX PREFIX
   if [ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then
+    set +u
     # shellcheck disable=SC1091
-    . "${NVM_DIR:-$HOME/.nvm}/nvm.sh"
-    nvm use 22 >/dev/null 2>&1 || nvm install 22 >/dev/null
+    . "${NVM_DIR:-$HOME/.nvm}/nvm.sh" >/dev/null 2>&1 || true
+    nvm use 22 >/dev/null 2>&1 || nvm install 22 >/dev/null 2>&1 || true
+    set -u
   fi
+  if [ "$(node_major)" -lt 22 ] 2>/dev/null || ! command -v node >/dev/null; then
+    for dir in "${NVM_DIR:-$HOME/.nvm}"/versions/node/v2[2-9]*/bin "${NVM_DIR:-$HOME/.nvm}"/versions/node/v[3-9][0-9]*/bin; do
+      [ -x "$dir/node" ] && PATH="$dir:$PATH"
+    done
+  fi
+fi
+if [ "$(node_major)" -lt 22 ] 2>/dev/null; then
+  echo "Node 22 or later is required; found $(node -v 2>/dev/null || echo none). Install it with 'nvm install 22'." >&2
+  exit 1
 fi
 
 if [ "$WEB_DIR" = "$ROOT/.web" ]; then

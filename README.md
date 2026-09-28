@@ -1,7 +1,7 @@
-# AnotherNotes for the desktop
+# AnotherNote for the desktop
 
-The AnotherNotes app for the Mac: the web app's interface, packaged inside the app and
-served from the app's own origin, talking to the AnotherNotes API. Plus what a browser
+The AnotherNote app for the Mac: the web app's interface, packaged inside the app and
+served from the app's own origin, talking to the AnotherNote API. Plus what a browser
 tab cannot give it: a dock icon, native menus and shortcuts, a remembered window, links
 that open in your browser, the microphone, its own signed-in session, a loading screen,
 and updates that install themselves.
@@ -9,10 +9,10 @@ and updates that install themselves.
 How it is put together:
 
 ```
- AnotherNotes.app
+ AnotherNote.app
  ├─ renderer/          the web app's production build (playstudy-card-dash, `vite build`)
  │                     served at app://anothernotes/…  (src/main/renderer.ts)
- ├─ /api, /img         forwarded to the server with the app's own cookie jar, so the
+ ├─ /api, /img, /files forwarded to the server with the app's own cookie jar, so the
  │                     web app's relative /api works unchanged and the refresh cookie
  │                     (httpOnly, SameSite=Strict) behaves as on the site
  └─ main process       window, menus, sign-in, updater  (src/main/*.ts)
@@ -36,7 +36,7 @@ the server, against about 330 ms for a copy started fresh). Links are routed bef
 page follows them, so the page clicked in never flickers. Closing a tab first leaves the
 note the way the web app expects, so an empty new note is deleted and pending progress
 is sent, as in a browser; quitting does the same for every open tab. The sidebar is one
-for the window: docked or folded in one tab, it is the same in the others. Pages out of
+for the window: docked, folded or resized in one tab, it is the same in the others. Pages out of
 sight load again in the background when a note is made, renamed or deleted, so their
 lists are current when they come back. `[tabs]` lines in the terminal time every open.
 
@@ -49,9 +49,9 @@ version worked and still handy for a quick look (`scripts/run-mac.sh --site`).
 You need a Mac on macOS 13 (Ventura) or later, which is the oldest macOS Electron 44 runs on. One build runs on both Apple silicon
 and Intel. The app needs an internet connection: it is the website, in a window.
 
-1. Download `AnotherNotes-<version>-universal.dmg` from the repository's Releases page.
-2. Open it and drag **AnotherNotes** onto **Applications**.
-3. Open AnotherNotes from Applications or Spotlight. After a short loading screen the
+1. Download `AnotherNote-<version>-universal.dmg` from the repository's Releases page.
+2. Open it and drag **AnotherNote** onto **Applications**.
+3. Open AnotherNote from Applications or Spotlight. After a short loading screen the
    app shows its own sign-in screen: an email and password, a child's username and PIN,
    or **Continue with Google or Microsoft**, which signs you in through your browser and
    brings you straight back. The account is the same as on the website, and everything
@@ -61,12 +61,21 @@ If the build was not signed and notarised (see below), macOS says the app "canno
 opened because Apple cannot check it". Right-click the app, choose **Open**, then
 **Open** again. macOS remembers the choice.
 
+The app was called AnotherNotes until 0.1.0; it is AnotherNote now, as the product is
+(anothernote.app). The app's profile folder is named after the app, so the renamed app
+starts with a fresh profile: sign in once more, and give it the maintenance-gate key again if you use one. The old folder,
+`~/Library/Application Support/AnotherNotes`, can be deleted. What the web app and the API
+rely on keeps its spelling: the `anothernotes://` link, the `X-AnotherNotes-Client`
+header, `window.anothernotes`, `app://anothernotes` and the `ANOTHERNOTES_*` variables.
+
 The first time you press Dictate or talk to the tutor, macOS asks for the microphone.
 
 ## One command: build and run
 
-`scripts/run-mac.sh` (also `npm run mac`) does the whole thing: picks Node 22 through nvm,
-installs dependencies if they are missing, builds the web app into `renderer/` when it is
+`scripts/run-mac.sh` (also `npm run mac`, from this folder) does the whole thing: picks Node 22
+through nvm (npm hands its `prefix` setting to the scripts it runs as `npm_config_prefix`,
+which nvm refuses to work with; the script drops it for its own run, and finds the Node 22
+nvm installed by its path if nvm still cannot be used), installs dependencies if they are missing, builds the web app into `renderer/` when it is
 not there yet, keeps the build output out of iCloud Drive (codesign rejects files iCloud
 has touched), quits a copy that is already running, builds the `.app`, and starts it with
 its logs in the terminal. Ctrl-C quits the app.
@@ -89,6 +98,16 @@ a branch with `ANOTHERNOTES_WEB_REF=…`. `renderer/BUILD` records the commit, a
 prints it at start-up. Whenever the web app changes, run it again; the Mac app carries
 the build it was packaged with.
 
+The bundle is whichever branch was built. The `.web/` clone follows the web repo's
+default branch (`Master`), so work that is still on another branch reaches the app only
+when it is built from that branch, or once it is merged. In September 2026 the drawn
+icons, the flush and resizable sidebar and Help & support lived on `feature/September`:
+
+```sh
+ANOTHERNOTES_WEB_REF=feature/September scripts/build-renderer.sh        # the .web/ clone
+ANOTHERNOTES_WEB_DIR=../playstudy-card-dash scripts/build-renderer.sh   # a checkout on that branch
+```
+
 ## Building the DMG
 
 You need Node 22 or later and, for the DMG itself, a Mac with the Xcode command line
@@ -104,8 +123,8 @@ That leaves, in `release/`:
 
 | File | What it is for |
 |---|---|
-| `AnotherNotes-<version>-universal.dmg` | the installer people download |
-| `AnotherNotes-<version>-universal-mac.zip` | the same app, zipped, which the updater downloads |
+| `AnotherNote-<version>-universal.dmg` | the installer people download |
+| `AnotherNote-<version>-universal-mac.zip` | the same app, zipped, which the updater downloads |
 | `latest-mac.yml` | the update feed: version, file names, checksums |
 
 Under the hood, `npm run dist:mac` is two steps:
@@ -113,9 +132,9 @@ Under the hood, `npm run dist:mac` is two steps:
 ```
 tsc                       src/main/*.ts, src/preload/index.ts  →  dist/
 electron-builder --mac    dist/ + static/ + node_modules  →  app.asar
-                          Electron.app + app.asar + icon + Info.plist  →  AnotherNotes.app
-                          AnotherNotes.app  →  signed, notarised (when credentials exist)
-                          AnotherNotes.app  →  .dmg  (drag to Applications), .zip, latest-mac.yml
+                          Electron.app + app.asar + icon + Info.plist  →  AnotherNote.app
+                          AnotherNote.app  →  signed, notarised (when credentials exist)
+                          AnotherNote.app  →  .dmg  (drag to Applications), .zip, latest-mac.yml
 ```
 
 To run it without packaging, or against a local copy of the web app:
@@ -256,7 +275,7 @@ app), and the dialog the app shows if a page tries to reach Google's sign-in any
 The link works because the app is registered for the `anothernotes://` scheme
 (`protocols` in the builder config puts it in `Info.plist`). macOS only routes the scheme
 to a packaged app, so to try the whole round trip in development run `npm run pack` and
-open `release/mac-universal/AnotherNotes.app` once; `npm start` alone can test everything
+open `release/mac-universal/AnotherNote.app` once; `npm start` alone can test everything
 up to the link.
 
 ## Lessons in the window
@@ -288,7 +307,7 @@ signal.
 src/main/index.ts       app lifecycle: single instance, permissions, the client header, deep links, IPC
 src/main/signin.ts      the app's own sign-in: email and password, or a child's PIN, against the API
 src/main/auth.ts        sign-in through the browser: state + PKCE, the anothernotes:// link, the exchange
-src/main/renderer.ts    the bundled web app at app://anothernotes, and /api forwarded to the server
+src/main/renderer.ts    the bundled web app at app://anothernotes; /api, /img and /files forwarded to the server
 src/main/server.ts      requests to the server, with the app keeping the server's cookies itself
 src/main/events.ts      "lists-changed", from the API forwarder to the window, to refresh pages out of sight
 src/main/windows.ts     the main window: tab bar and tabs, loading screen, sign-in routing, navigation rules
@@ -321,7 +340,7 @@ the desktop apart.
 - **Google sign-in** happens in your browser (above), never in the window, because
   Google refuses it there. Microsoft sign-in and "connect a note source" round-trip
   inside the window as on the web; SAML goes through the browser too.
-- **Nothing works offline** beyond the "can't reach AnotherNotes" page; the app is the
+- **Nothing works offline** beyond the "can't reach AnotherNote" page; the app is the
   website.
 - **Auto-update needs a signed build.**
 - Linux and Windows are not targets yet. The Linux AppImage target exists only so the

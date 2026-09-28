@@ -39,7 +39,8 @@ contextBridge.exposeInMainWorld(
   The window's tab bar sits over the content column, starting where the web app's
   sidebar ends (windows.ts). The page is the only one that knows where that is, so this
   reports it, and the sidebar's colour, whenever either changes: the sidebar resized or
-  folded away, the theme switched, another page shown. -1 means the page has no sidebar.
+  folded away, the theme or a note's sheet colour switched, another page shown. -1 means
+  the page has no sidebar.
   It also reports a dialog's backdrop while one is open (a full-window layer the web app
   dims itself with), so the tab bar, which sits above the page, can be dimmed with it.
 */
@@ -80,7 +81,7 @@ function reportChrome(): void {
     subtree: true,
     childList: true,
     attributes: true,
-    attributeFilter: ["class", "style", "data-state", "data-collapsible", "data-scroll-locked"],
+    attributeFilter: ["class", "style", "data-state", "data-collapsible", "data-scroll-locked", "data-an-sheet"],
   });
   window.addEventListener("resize", soon);
   document.addEventListener("transitionend", soon, true);
@@ -158,16 +159,22 @@ if (location.protocol === "app:") {
   Room in the web app's layout for the window's chrome, in place before the web app
   draws anything (a style added after its first paint would make the page jump). The
   selectors are the sidebar component's: its header, above whose brand block the window
-  buttons sit and whose strip moves the window, and the inset content card, which starts
-  below the tab bar (44px, TOOLBAR_HEIGHT in windows.ts).
+  buttons sit and whose strip moves the window; its edge strip, which folds and resizes
+  the sidebar and must never drag the window instead; and the content column, which
+  starts below the tab bar (44px, TOOLBAR_HEIGHT in windows.ts). The column is the
+  window's height less the bar: flush with the sidebar, as the web app lays it out now
+  (variant "sidebar"), or less its card's bottom margin should it go back to the inset
+  card it used to be.
 */
 const SHELL_CSS = `
   @media (min-width: 768px) {
-    .peer ~ main { margin-top: 44px !important; height: calc(100svh - 44px - 0.5rem) !important; min-height: 0 !important; }
+    .peer ~ main { margin-top: 44px !important; height: calc(100svh - 44px) !important; min-height: 0 !important; }
+    .peer[data-variant="inset"] ~ main { height: calc(100svh - 44px - 0.5rem) !important; }
     [data-sidebar="header"] { padding-top: ${process.platform === "darwin" ? 40 : 8}px !important; -webkit-app-region: drag; }
     [data-sidebar="header"] :is(a, button, input, select, textarea, [role="button"], [role="combobox"], [tabindex]) {
       -webkit-app-region: no-drag;
     }
+    [data-sidebar="rail"] { -webkit-app-region: no-drag; }
   }
 `;
 
@@ -226,12 +233,15 @@ if (location.protocol === "app:" || location.protocol === "http:" || location.pr
 
 /*
   One sidebar for the window. Each tab is its own copy of the web app, which reads
-  whether its sidebar is docked once, as it starts; so when it is docked or folded in
-  one tab, the others follow. The setting lives in the pages' shared cookie store (the
-  localStorage one above): a change there reaches every other page as a storage event,
-  and a page also checks as it comes on screen (it may have started while the setting
-  was changing). A page whose sidebar is the other way docks or folds it with the web
-  app's own ⌘B.
+  whether its sidebar is docked, and how wide it was dragged, once, as it starts; so
+  when it is docked, folded or resized in one tab, the others follow. The dock lives in
+  the pages' shared cookie store (the localStorage one above) and the width in their
+  localStorage ("sidebar:width", ui/sidebar.tsx in the web repo): a change to either
+  reaches every other page as a storage event, and a page also checks as it comes on
+  screen (it may have started while the setting was changing). A page whose sidebar is
+  the other way docks or folds it with the web app's own ⌘B; one whose sidebar is
+  another width sets the width where the web app's own edge strip sets it, the
+  --sidebar-width of its layout's wrapper.
 */
 function followSidebar(jar: string | null): void {
   let docked: string | undefined;
@@ -246,14 +256,31 @@ function followSidebar(jar: string | null): void {
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", code: "KeyB", metaKey: true, bubbles: true, cancelable: true }));
 }
 
+/** The widths the web app's edge strip allows (SIDEBAR_MIN_PX and SIDEBAR_MAX_PX in ui/sidebar.tsx). */
+const SIDEBAR_WIDTH_KEY = "sidebar:width";
+const SIDEBAR_WIDTH_MIN = 180;
+const SIDEBAR_WIDTH_MAX = 480;
+
+function followSidebarWidth(value: string | null): void {
+  const px = Number(value);
+  if (!value || !(px >= SIDEBAR_WIDTH_MIN && px <= SIDEBAR_WIDTH_MAX)) return;
+  const wrapper = document.querySelector<HTMLElement>('[class~="group/sidebar-wrapper"]');
+  // Not while this page's own strip is being dragged: the drag owns the width until it ends.
+  if (!wrapper || wrapper.hasAttribute("data-resizing")) return;
+  const width = `${Math.round(px)}px`;
+  if (wrapper.style.getPropertyValue("--sidebar-width") !== width) wrapper.style.setProperty("--sidebar-width", width);
+}
+
 if (location.protocol === "app:") {
   window.addEventListener("storage", (event) => {
     if (event.key === "__anothernotes_cookies") followSidebar(event.newValue);
+    else if (event.key === SIDEBAR_WIDTH_KEY) followSidebarWidth(event.newValue);
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
     try {
       followSidebar(localStorage.getItem("__anothernotes_cookies"));
+      followSidebarWidth(localStorage.getItem(SIDEBAR_WIDTH_KEY));
     } catch {
       /* storage blocked: the page keeps the sidebar it has */
     }

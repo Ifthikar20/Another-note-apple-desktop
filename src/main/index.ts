@@ -22,7 +22,7 @@ import { installUpdater } from "./updater";
 import { createMainWindow, focusMainWindow, getMainWindow, setBrowserSignIn, showSignIn } from "./windows";
 
 /*
-  AnotherNotes for the desktop, v0: the live web app in a window of its own.
+  AnotherNote for the desktop, v0: the live web app in a window of its own.
 
   The renderer is the website, untouched. Everything native lives here in the main
   process: one window whose size and place are remembered, native menus, links to the
@@ -84,7 +84,7 @@ if (!app.requestSingleInstanceLock()) {
     );
     if (BUNDLED) installRenderer();
     app.setAboutPanelOptions({
-      applicationName: "AnotherNotes",
+      applicationName: "AnotherNote",
       applicationVersion: app.getVersion(),
       website: WEBSITE_URL,
     });

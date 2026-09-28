@@ -40,14 +40,19 @@ export function rendererBuild(): string {
   }
 }
 
-/** Mirrors deploy/aws/nginx.conf in the web repo; 'self' is the app's own origin here. */
+/**
+ * Mirrors deploy/aws/nginx.conf in the web repo; 'self' is the app's own origin here.
+ * No inline scripts: the pages' own scripts are files (theme-boot.js, maintenance.js,
+ * terms.js). 'wasm-unsafe-eval' is for pdf.js's JPEG 2000 and ICC decoders. Every
+ * picture the app shows is its own (/img), so img-src names no other host.
+ */
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com https://www.google.com https://www.gstatic.com",
-  "frame-src 'self' https://challenges.cloudflare.com https://www.google.com",
+  "script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
+  "frame-src 'self' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https: http:",
+  "img-src 'self' data: blob:",
   "connect-src 'self' https://challenges.cloudflare.com https://cloudflareinsights.com",
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
@@ -110,7 +115,7 @@ async function forward(request: Request, url: URL): Promise<Response> {
         : await serverRequest(target, { method: request.method, headers, body });
   } catch (e) {
     console.warn(`[api] ${request.method} ${url.pathname}: ${(e as Error).message}`);
-    return new Response(JSON.stringify({ detail: "The AnotherNotes server could not be reached" }), {
+    return new Response(JSON.stringify({ detail: "The AnotherNote server could not be reached" }), {
       status: 503,
       headers: { "Content-Type": "application/json", "X-AnotherNotes-Unreachable": "1" },
     });

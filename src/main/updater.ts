@@ -34,7 +34,7 @@ export function installUpdater(): void {
     void dialog.showMessageBox({
       type: "info",
       message: "You're up to date",
-      detail: `AnotherNotes ${app.getVersion()} is the latest version.`,
+      detail: `AnotherNote ${app.getVersion()} is the latest version.`,
     });
   });
   autoUpdater.on("update-downloaded", (info) => {
@@ -42,7 +42,7 @@ export function installUpdater(): void {
     void dialog
       .showMessageBox({
         type: "info",
-        message: `AnotherNotes ${info.version} is ready`,
+        message: `AnotherNote ${info.version} is ready`,
         detail: "Restart to update. Anything you're doing now will be there when it comes back.",
         buttons: ["Restart now", "Later"],
         defaultId: 0,

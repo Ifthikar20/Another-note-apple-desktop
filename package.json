@@ -1,10 +1,10 @@
 {
   "name": "anothernotes-desktop",
-  "productName": "AnotherNotes",
+  "productName": "AnotherNote",
   "version": "0.1.0",
-  "description": "AnotherNotes for the desktop: the web app in a window of its own.",
+  "description": "AnotherNote for the desktop: the web app in a window of its own.",
   "private": true,
-  "author": "AnotherNotes",
+  "author": "AnotherNote",
   "main": "dist/main/index.js",
   "engines": {
     "node": ">=22"

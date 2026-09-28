@@ -1,5 +1,5 @@
 /*
-  How the app is packaged. `npm run dist:mac` on a Mac gives release/AnotherNotes-<version>-universal.dmg
+  How the app is packaged. `npm run dist:mac` on a Mac gives release/AnotherNote-<version>-universal.dmg
   (drag-to-Applications installer), a .zip of the same app for the updater, and latest-mac.yml,
   the update feed. See the README for signing and notarising.
 */
@@ -13,8 +13,8 @@ const notarize = Boolean(
 /** @type {import("electron-builder").Configuration} */
 module.exports = {
   appId: "app.anothernote.desktop",
-  productName: "AnotherNotes",
-  copyright: "Copyright © 2026 AnotherNotes",
+  productName: "AnotherNote",
+  copyright: "Copyright © 2026 AnotherNote",
   directories: {
     output: "release",
     buildResources: "build",
@@ -22,7 +22,7 @@ module.exports = {
   files: ["dist/**/*", "static/**/*", "renderer/**/*", "package.json"],
   asar: true,
   // The link that brings a browser sign-in back into the app (src/main/auth.ts).
-  protocols: { name: "AnotherNotes", schemes: ["anothernotes"] },
+  protocols: { name: "AnotherNote", schemes: ["anothernotes"] },
   publish: {
     provider: "github",
     owner: "Ifthikar20",
@@ -43,11 +43,11 @@ module.exports = {
     notarize,
     extendInfo: {
       NSMicrophoneUsageDescription:
-        "AnotherNotes uses the microphone so you can dictate notes and talk to the tutor.",
+        "AnotherNote uses the microphone so you can dictate notes and talk to the tutor.",
     },
   },
   dmg: {
-    title: "AnotherNotes",
+    title: "AnotherNote",
     contents: [
       { x: 130, y: 220 },
       { x: 410, y: 220, type: "link", path: "/Applications" },

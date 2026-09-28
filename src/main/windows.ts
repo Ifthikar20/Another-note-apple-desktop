@@ -166,7 +166,7 @@ function createSplash(): BrowserWindow {
     maximizable: false,
     fullscreenable: false,
     show: false,
-    title: "AnotherNotes",
+    title: "AnotherNote",
     backgroundColor: "#ffffff",
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
   });
@@ -239,7 +239,9 @@ function routeLabel(url: string): string {
   if (where === "/dashboard/calendar") return "Calendar";
   if (where === "/dashboard/profile") return "Profile";
   if (where.startsWith("/dashboard/family")) return "Family";
-  return "AnotherNotes";
+  if (where === "/dashboard/help") return "Help";
+  if (where === "/dashboard/search") return "Search";
+  return "AnotherNote";
 }
 
 /**
@@ -416,7 +418,7 @@ export function createMainWindow(first: FirstPage = "app"): BrowserWindow {
     minWidth: 900,
     minHeight: 600,
     show: false,
-    title: "AnotherNotes",
+    title: "AnotherNote",
     backgroundColor: "#fff9f0",
     // No title bar: the window buttons sit in the app's own tab bar.
     ...(process.platform === "darwin"
@@ -557,7 +559,7 @@ function newPage(role: Role, url: string | null): Page {
     key: role === "note" && url ? noteKey(url) : null,
     lastUrl: url ?? "",
     view,
-    title: url ? routeLabel(url) : "AnotherNotes",
+    title: url ? routeLabel(url) : "AnotherNote",
     signIn: false,
     booted: false,
     audible: false,
@@ -706,7 +708,7 @@ function leave(page: Page): void {
 function toSpare(page: Page): void {
   page.role = "spare";
   page.key = null;
-  page.title = "AnotherNotes";
+  page.title = "AnotherNote";
   page.clearHistory = false;
   page.view.setVisible(false);
   page.view.webContents.setAudioMuted(true);
@@ -1233,8 +1235,8 @@ function explainGoogleSignIn(win: BrowserWindow): void {
 /** Chromium's error names, in words a student can act on. */
 const REASONS: Record<string, string> = {
   ERR_INTERNET_DISCONNECTED: "You're offline",
-  ERR_NAME_NOT_RESOLVED: "The AnotherNotes server could not be found",
-  ERR_CONNECTION_REFUSED: "The AnotherNotes server refused the connection",
+  ERR_NAME_NOT_RESOLVED: "The AnotherNote server could not be found",
+  ERR_CONNECTION_REFUSED: "The AnotherNote server refused the connection",
   ERR_CONNECTION_TIMED_OUT: "The connection timed out",
   ERR_CONNECTION_RESET: "The connection was reset",
   ERR_NETWORK_CHANGED: "Your network changed",
@@ -1252,7 +1254,7 @@ function showMaintenancePage(contents: WebContents, url: string): void {
   void contents.loadFile(path.join(app.getAppPath(), "static", "offline.html"), {
     query: {
       url: isAppUrl(url) ? url : APP_URL,
-      title: "AnotherNotes is being updated",
+      title: "AnotherNote is being updated",
       why: "Back in a moment",
     },
   });

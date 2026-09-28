@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sign in to AnotherNotes</title>
+    <title>Sign in to AnotherNote</title>
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; img-src data:; media-src file: http: https:" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" />
     <style>
@@ -327,7 +327,7 @@
                 <rect x="176" y="316" width="98" height="22" rx="11"/>
               </g>
             </svg>
-            <span>AnotherNotes</span>
+            <span>AnotherNote</span>
           </div>
           <h1>Let&rsquo;s get you studying</h1>
           <p class="sub">Your notes, written up, read aloud, and turned into quizzes and flashcards.</p>
@@ -377,7 +377,7 @@
         <p class="server" id="server"></p>
       </section>
 
-      <section class="show" aria-label="AnotherNotes, in motion">
+      <section class="show" aria-label="AnotherNote, in motion">
         <div class="pitch">
           <h2>Your notes, <em>in motion.</em></h2>
           <p>Drop in your notes, slides or a PDF. They come back written up, section by section, then read back to you a line at a time.</p>
@@ -854,7 +854,7 @@
 
         if (!bridge || !bridge.signIn) {
           document.querySelectorAll("form button, form input, #browser").forEach(function (el) { el.disabled = true; });
-          forms.email.querySelector(".error").textContent = "This page only works inside the AnotherNotes app.";
+          forms.email.querySelector(".error").textContent = "This page only works inside the AnotherNote app.";
           return;
         }
 

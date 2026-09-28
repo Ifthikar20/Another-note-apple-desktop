@@ -71,10 +71,11 @@ export const API_ORIGIN = new URL(API_URL).origin;
 
 /**
  * Server paths the bundled renderer reaches through its own origin: the API, the
- * approved pictures (/img, served by nginx next to the API) and the health check.
- * renderer.ts forwards them to the server; everything else is a file of the bundle.
+ * approved pictures (/img, served by nginx next to the API), a session's PDF behind its
+ * signed link (/files, which nginx checks) and the health check. renderer.ts forwards
+ * them to the server; everything else is a file of the bundle.
  */
-export const PROXIED_PATHS = ["/api", "/img", "/health"];
+export const PROXIED_PATHS = ["/api", "/img", "/files", "/health"];
 
 /**
  * The site's maintenance gate: nginx answers "Back soon" (503) unless the an_preview

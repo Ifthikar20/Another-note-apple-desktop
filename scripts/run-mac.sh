@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build AnotherNotes for the Mac and open it, with its logs in this terminal.
+# Build AnotherNote for the Mac and open it, with its logs in this terminal.
 #
 #   scripts/run-mac.sh                          the live site, packaged .app
 #   scripts/run-mac.sh http://100.49.56.40/     a test server instead
@@ -35,12 +35,24 @@ done
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 
 # 1. Node 22 or later (Electron 44 needs it). Use nvm and .nvmrc if the shell has an older one.
+#    nvm refuses to run while npm_config_prefix (or PREFIX) is set, which some shell
+#    profiles and conda environments do; this script has no use for either, so they are
+#    dropped here, for this script only. Should nvm still not work, the Node 22 it has
+#    installed is found by its path.
 node_major() { node -v 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/'; }
 if [ "$(node_major)" -lt 22 ] 2>/dev/null || ! command -v node >/dev/null; then
+  unset npm_config_prefix NPM_CONFIG_PREFIX PREFIX
   if [ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then
+    set +u
     # shellcheck disable=SC1091
-    . "${NVM_DIR:-$HOME/.nvm}/nvm.sh"
-    nvm use >/dev/null 2>&1 || nvm install >/dev/null
+    . "${NVM_DIR:-$HOME/.nvm}/nvm.sh" >/dev/null 2>&1 || true
+    nvm use >/dev/null 2>&1 || nvm install >/dev/null 2>&1 || true
+    set -u
+  fi
+  if [ "$(node_major)" -lt 22 ] 2>/dev/null || ! command -v node >/dev/null; then
+    for dir in "${NVM_DIR:-$HOME/.nvm}"/versions/node/v2[2-9]*/bin "${NVM_DIR:-$HOME/.nvm}"/versions/node/v[3-9][0-9]*/bin; do
+      [ -x "$dir/node" ] && PATH="$dir:$PATH"
+    done
   fi
 fi
 if [ "$(node_major)" -lt 22 ] 2>/dev/null; then
@@ -73,10 +85,12 @@ if [ "$MODE" != dev ] && [ ! -L release ] && in_icloud "$ROOT"; then
   ln -s "$OUT" release
 fi
 
-# 4. The app allows one running copy; a second launch would quit silently.
+# 4. The app allows one running copy; a second launch would quit silently. (AnotherNotes
+#    was the app's name until 0.1.0; a copy from then may still be running.)
 DEV_BIN="$ROOT/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
-if pgrep -x AnotherNotes >/dev/null || pgrep -f "$DEV_BIN" >/dev/null; then
+if pgrep -x AnotherNote >/dev/null || pgrep -x AnotherNotes >/dev/null || pgrep -f "$DEV_BIN" >/dev/null; then
   say "quitting the running copy"
+  pkill -x AnotherNote 2>/dev/null || true
   pkill -x AnotherNotes 2>/dev/null || true
   pkill -f "$DEV_BIN" 2>/dev/null || true
   sleep 1
@@ -107,18 +121,18 @@ case "$MODE" in
     exec node_modules/.bin/electron .
     ;;
   pack)
-    say "building release/<arch>/AnotherNotes.app"
+    say "building release/<arch>/AnotherNote.app"
     npm run pack
     ARCH_DIR="mac-$(uname -m | sed 's/x86_64/x64/')"
     [ -d "release/$ARCH_DIR" ] || ARCH_DIR=mac
-    APP="release/$ARCH_DIR/AnotherNotes.app"
+    APP="release/$ARCH_DIR/AnotherNote.app"
     ;;
   dist)
     say "building the universal .app and .dmg"
     npm run dist:mac
-    APP="release/mac-universal/AnotherNotes.app"
+    APP="release/mac-universal/AnotherNote.app"
     ls -1 release/*.dmg
     ;;
 esac
 say "starting $APP"
-exec "$APP/Contents/MacOS/AnotherNotes"
+exec "$APP/Contents/MacOS/AnotherNote"

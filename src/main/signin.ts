@@ -53,7 +53,7 @@ function refusal(status: number, data: unknown): SignInResult {
   }
   if (typeof detail === "string" && detail) return { ok: false, error: detail };
   if (status === 429) return { ok: false, error: "Too many attempts. Wait a minute and try again." };
-  if (status === 503) return { ok: false, error: "AnotherNotes is being updated. Try again in a moment." };
+  if (status === 503) return { ok: false, error: "AnotherNote is being updated. Try again in a moment." };
   return { ok: false, error: `Sign-in failed (${status}). Try again.` };
 }
 
@@ -74,7 +74,7 @@ async function signIn(credentials: Credentials | null): Promise<SignInResult> {
     data = await new Response(response.body).json().catch(() => null);
   } catch (e) {
     console.warn(`[anothernotes] sign-in (${credentials.kind}): ${(e as Error).message}`);
-    return { ok: false, error: "Can't reach AnotherNotes. Check your connection and try again." };
+    return { ok: false, error: "Can't reach AnotherNote. Check your connection and try again." };
   }
   console.log(`[anothernotes] sign-in (${credentials.kind}) -> ${response.status}`);
   const token = (data as { access_token?: unknown } | null)?.access_token;
