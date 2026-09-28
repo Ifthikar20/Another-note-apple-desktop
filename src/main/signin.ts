@@ -1,7 +1,7 @@
 import { ipcMain, session, type IpcMainInvokeEvent } from "electron";
 import { serverRequest, type ServerResponse } from "./server";
 import { API_URL, APP_ORIGIN, CLIENT_HEADER, SESSION_COOKIE, SESSION_COOKIE_URL } from "./config";
-import { loadInActiveTab } from "./windows";
+import { openAfterSignIn } from "./windows";
 
 /*
   The app's own sign-in (static/signin.html). The screen is the desktop's; the account
@@ -85,7 +85,7 @@ async function signIn(credentials: Credentials | null): Promise<SignInResult> {
 
   const callback = new URL("/auth/callback", APP_ORIGIN);
   callback.hash = new URLSearchParams({ token, next: "/dashboard" }).toString();
-  loadInActiveTab(callback.toString());
+  openAfterSignIn(callback.toString());
   return { ok: true };
 }
 

@@ -2,54 +2,195 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AnotherNotes</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:" />
     <style>
+      /*
+        The loading screen: a pencil writes a note while a paper plane circles it, on white
+        with a few colourful things about, like the sign-in screen. One loop is 2.8 s; the
+        first line is written within the first half second, so even a short wait shows the
+        idea. Everything is drawn here; nothing loads. Always light.
+      */
       :root {
-        color-scheme: light dark;
-        --bg: #f5f5f7; --ink: #1d1d1f; --muted: #6e6e73; --accent: #0071e3; --hair: rgba(0, 0, 0, .1);
-      }
-      @media (prefers-color-scheme: dark) {
-        :root { --bg: #1c1c1e; --ink: #f5f5f7; --muted: #a1a1a6; --accent: #0a84ff; --hair: rgba(255, 255, 255, .14); }
+        color-scheme: light;
+        --paper: #ffffff; --card: #ffffff; --ink: #2b2a27; --muted: #8a857d;
+        --line: rgba(43, 42, 39, .14); --card-rule: rgba(56, 92, 160, .13); --tape: rgba(255, 206, 84, .85);
+        --pencil: #f7c948; --pencil-dark: #dca82a; --wood: #f1d3a6; --lead: #3a3935; --eraser: #f59ab0; --metal: #cbc9c3;
+        --plane: #eaf2ff; --plane-shade: #c4d7fb; --plane-ink: #2d4d8f;
+        --leaf-1: #f5a623; --leaf-2: #ec6a3c; --leaf-3: #e6be2e; --leaf-4: #86c25a;
       }
       * { box-sizing: border-box; }
-      html, body { height: 100%; }
+      html, body { height: 100%; margin: 0; }
       body {
-        margin: 0; display: grid; place-items: center; background: var(--bg); color: var(--ink);
+        display: grid; place-items: center; overflow: hidden;
+        background-color: var(--paper);
+        color: var(--ink);
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
         -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none;
         -webkit-app-region: drag;
       }
-      main { text-align: center; animation: rise .5s ease-out both; }
-      .logo { width: 92px; height: 92px; margin: 0 auto 22px; border-radius: 22px; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); display: block; animation: breathe 2.4s ease-in-out infinite; }
-      h1 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
-      .sub { margin: 0 0 22px; color: var(--muted); font-size: 14px; }
-      .spinner {
-        width: 22px; height: 22px; margin: 0 auto; border-radius: 50%;
-        border: 2.5px solid var(--hair); border-top-color: var(--accent); animation: spin .9s linear infinite;
+      main { position: relative; z-index: 1; text-align: center; animation: rise .45s ease-out both; }
+
+      /* The stage: the note, the pencil writing on it, the plane around it. */
+      .stage { position: relative; width: 240px; height: 170px; margin: 0 auto 14px; }
+      .note { position: absolute; inset: 0; z-index: 1; overflow: visible; }
+      .n-shadow { fill: rgba(60, 40, 10, .14); }
+      .n-card { fill: var(--card); stroke: var(--line); stroke-width: 1.4; }
+      .n-rule { stroke: var(--card-rule); stroke-width: 1; }
+      .n-tape { fill: var(--tape); }
+      .w { fill: none; stroke: var(--ink); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1.5; stroke-dashoffset: 1.02; }
+      .w1 { animation: w1 2.8s linear infinite; }
+      .w2 { animation: w2 2.8s linear infinite; }
+      .w3 { animation: w3 2.8s linear infinite; }
+      @keyframes w1 { 0% { stroke-dashoffset: 1.02; opacity: 1 } 20% { stroke-dashoffset: 0 } 85% { stroke-dashoffset: 0; opacity: 1 } 95%, 100% { stroke-dashoffset: 0; opacity: 0 } }
+      @keyframes w2 { 0%, 25% { stroke-dashoffset: 1.02; opacity: 1 } 42% { stroke-dashoffset: 0 } 85% { stroke-dashoffset: 0; opacity: 1 } 95%, 100% { stroke-dashoffset: 0; opacity: 0 } }
+      @keyframes w3 { 0%, 47% { stroke-dashoffset: 1.02; opacity: 1 } 58% { stroke-dashoffset: 0 } 85% { stroke-dashoffset: 0; opacity: 1 } 95%, 100% { stroke-dashoffset: 0; opacity: 0 } }
+
+      /* The pencil's tip is its origin, so the path it follows is the line being written. */
+      .writer { animation: write 2.8s infinite; }
+      @keyframes write {
+        0% { transform: translate(64px, 64px); animation-timing-function: linear; }
+        20% { transform: translate(157.4px, 64px); animation-timing-function: ease-in-out; }
+        25% { transform: translate(64px, 86px); animation-timing-function: linear; }
+        42% { transform: translate(146.0px, 86px); animation-timing-function: ease-in-out; }
+        47% { transform: translate(64px, 108px); animation-timing-function: linear; }
+        58% { transform: translate(113.3px, 108px); animation-timing-function: ease-in-out; }
+        66%, 85% { transform: translate(176px, 126px); animation-timing-function: ease-in-out; }
+        100% { transform: translate(64px, 64px); }
       }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-      @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+      .jot { animation: jot .16s ease-in-out infinite alternate; }
+      @keyframes jot { from { transform: translateY(-1.6px); } to { transform: translateY(1.6px); } }
+      .p-body { fill: var(--pencil); stroke: var(--ink); stroke-width: 1; }
+      .p-facet { stroke: var(--pencil-dark); stroke-width: 1; }
+      .p-wood { fill: var(--wood); stroke: var(--ink); stroke-width: 1; stroke-linejoin: round; }
+      .p-lead { fill: var(--lead); }
+      .p-metal { fill: var(--metal); stroke: var(--ink); stroke-width: 1; }
+      .p-eraser { fill: var(--eraser); stroke: var(--ink); stroke-width: 1; }
+
+      /* The plane circles the note: behind it on the far side, in front on the near one. */
+      .plane {
+        position: absolute; left: 0; top: 0; width: 36px; height: 24px; z-index: 0;
+        offset-path: path("M 12 88 C 12 -4, 228 -4, 228 88 C 228 180, 12 180, 12 88");
+        offset-rotate: auto;
+        animation: orbit 3.6s linear infinite;
+      }
+      /* Nearer is bigger. On the inner drawing: a scale on the box on the path would scale
+         the path's distance from the corner as well. */
+      .plane svg { display: block; width: 100%; height: 100%; animation: nearer 3.6s linear infinite; }
+      @keyframes orbit {
+        0% { offset-distance: 0%; z-index: 0; }
+        49.9% { z-index: 0; }
+        50% { z-index: 2; }
+        100% { offset-distance: 100%; z-index: 2; }
+      }
+      @keyframes nearer { 0% { transform: scale(.8); } 25% { transform: scale(.66); } 50% { transform: scale(.86); } 75% { transform: scale(1.1); } 100% { transform: scale(.8); } }
+      .route { position: absolute; inset: 0; z-index: 0; overflow: visible; }
+      .route path { fill: none; stroke: #7f9bd1; stroke-width: 1; stroke-dasharray: 3 5; opacity: .45; }
+      .pl-top { fill: var(--plane); stroke: var(--plane-ink); stroke-width: 1.3; stroke-linejoin: round; }
+      .pl-bottom { fill: var(--plane-shade); stroke: var(--plane-ink); stroke-width: 1.3; stroke-linejoin: round; }
+      .pl-fold { stroke: var(--plane-ink); stroke-width: 1.1; }
+
+      /* A star and a few dots of colour floating about. */
+      .bit { position: fixed; z-index: 0; border-radius: 50%; animation: bob 4.6s ease-in-out infinite; }
+      .star { position: fixed; z-index: 0; width: 20px; height: 20px; fill: rgba(245, 179, 1, .18); stroke: #f5b301; stroke-width: 2.2; stroke-linejoin: round; animation: twinkle 3.2s ease-in-out infinite; }
+      @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+      @keyframes twinkle { 0%, 100% { transform: scale(.85) rotate(-8deg); opacity: .6; } 50% { transform: scale(1.1) rotate(8deg); opacity: 1; } }
+
+      .brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 4px; }
+      .brand .mark { width: 22px; height: 22px; border-radius: 6px; box-shadow: 0 3px 8px rgba(0, 0, 0, .14); }
+      .brand span { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+      .sub { margin: 0; color: var(--muted); font-size: 13px; }
+
+      /* A couple of leaves drifting past. */
+      .leaf { position: fixed; top: 0; left: var(--x); width: var(--size); height: var(--size); z-index: 0; animation: fall var(--dur) linear var(--delay) infinite; }
+      .leaf .sway { width: 100%; height: 100%; animation: sway var(--sway-dur) ease-in-out infinite alternate; }
+      .leaf svg { width: 100%; height: 100%; display: block; }
+      .l-body { stroke: rgba(0, 0, 0, .12); stroke-width: 1; }
+      .l-vein { fill: none; stroke: rgba(0, 0, 0, .18); stroke-width: 1; stroke-linecap: round; }
+      .c0 .l-body { fill: var(--leaf-1); } .c1 .l-body { fill: var(--leaf-2); } .c2 .l-body { fill: var(--leaf-3); } .c3 .l-body { fill: var(--leaf-4); }
+      @keyframes fall {
+        0% { transform: translate3d(0, -30px, 0) rotate(0deg); opacity: 0; }
+        10%, 88% { opacity: .9; }
+        100% { transform: translate3d(var(--drift), 410px, 0) rotate(var(--spin)); opacity: 0; }
+      }
+      @keyframes sway { from { transform: translateX(-14px) rotate(-22deg); } to { transform: translateX(14px) rotate(22deg); } }
+      @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation: none !important; }
+        .w { stroke-dashoffset: 0; }
+        .writer { transform: translate(176px, 126px); }
+        .plane, .leaf, .route { display: none; }
+      }
     </style>
   </head>
   <body>
+    <div class="leaf" style="--x: 14%; --size: 18px; --dur: 7s; --delay: -2s; --drift: 40px; --spin: 300deg"><div class="sway" style="--sway-dur: 2.6s">
+      <svg class="c0" viewBox="0 0 32 32"><path class="l-body" d="M16 2 C26 8 28 20 16 30 C4 20 6 8 16 2 Z" /><path class="l-vein" d="M16 5 V29 M16 12 L21 9 M16 17 L22 14 M16 22 L21 19 M16 12 L11 9 M16 17 L10 14 M16 22 L11 19" /></svg>
+    </div></div>
+    <div class="leaf" style="--x: 78%; --size: 15px; --dur: 8.5s; --delay: -5.5s; --drift: -50px; --spin: 420deg"><div class="sway" style="--sway-dur: 3.1s">
+      <svg class="c1" viewBox="0 0 32 32"><path class="l-body" d="M16 3 C23 5 29 12 27 20 C25 27 19 30 16 30 C13 30 7 27 5 20 C3 12 9 5 16 3 Z" /><path class="l-vein" d="M16 6 V29 M16 13 L21 10 M16 19 L22 16 M16 13 L11 10 M16 19 L10 16" /></svg>
+    </div></div>
+    <div class="leaf" style="--x: 58%; --size: 13px; --dur: 9.5s; --delay: -0.8s; --drift: 30px; --spin: 260deg"><div class="sway" style="--sway-dur: 2.3s">
+      <svg class="c2" viewBox="0 0 32 32"><path class="l-body" d="M16 2 C26 8 28 20 16 30 C4 20 6 8 16 2 Z" /><path class="l-vein" d="M16 5 V29 M16 12 L21 9 M16 17 L22 14 M16 12 L11 9 M16 17 L10 14" /></svg>
+    </div></div>
+    <div class="leaf" style="--x: 34%; --size: 14px; --dur: 10.5s; --delay: -7s; --drift: -24px; --spin: 340deg"><div class="sway" style="--sway-dur: 2.8s">
+      <svg class="c3" viewBox="0 0 32 32"><path class="l-body" d="M16 3 C23 5 29 12 27 20 C25 27 19 30 16 30 C13 30 7 27 5 20 C3 12 9 5 16 3 Z" /><path class="l-vein" d="M16 6 V29 M16 13 L21 10 M16 19 L22 16 M16 13 L11 10 M16 19 L10 16" /></svg>
+    </div></div>
+    <svg class="star" style="right: 34px; top: 44px" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 L24.6 15.4 L37 16 L27.2 24 L30.6 36.6 L20 29.2 L9.4 36.6 L12.8 24 L3 16 L15.4 15.4 Z" /></svg>
+    <span class="bit" style="left: 36px; top: 70px; width: 10px; height: 10px; background: #8fd8c6" aria-hidden="true"></span>
+    <span class="bit" style="left: 58px; bottom: 64px; width: 8px; height: 8px; background: #f59ab0; animation-delay: -1.6s" aria-hidden="true"></span>
+    <span class="bit" style="right: 52px; bottom: 92px; width: 9px; height: 9px; background: #6f86ea; animation-delay: -3s" aria-hidden="true"></span>
+
     <main>
-      <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AnotherNotes">
-  
+      <div class="stage" aria-hidden="true">
+        <svg class="route" viewBox="0 0 240 170"><path d="M 12 88 C 12 -4, 228 -4, 228 88 C 228 180, 12 180, 12 88" /></svg>
+        <div class="plane">
+          <svg viewBox="0 0 40 26">
+            <path class="pl-top" d="M39 13 L1 2 L14 14 Z" />
+            <path class="pl-bottom" d="M39 13 L14 14 L8 25 Z" />
+            <path class="pl-fold" d="M14 14 L39 13" />
+          </svg>
+        </div>
+        <svg class="note" viewBox="0 0 240 170">
+          <defs><filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="4" /></filter></defs>
+          <g transform="rotate(-3 120 86)">
+            <rect class="n-shadow" x="54" y="42" width="136" height="100" rx="8" filter="url(#soft)" />
+            <rect class="n-card" x="50" y="34" width="140" height="104" rx="7" />
+            <path class="n-rule" d="M62 66 H178 M62 88 H178 M62 110 H178" />
+            <path class="w w1" pathLength="1" d="M64 64 c4.1 -4.2 8.76 -11 7.05 -13.2 c-1.69 -1.2 -4.89 5.6 -4.65 10.6 c0.34 1.8 1.38 2.6 3.21 2.6 c3.28 -1.6 6.58 -4.4 4.82 -6.4 c-1.64 -1.4 -4.63 2.2 -3.05 5 c0.77 1.5 2.48 1.5 3.84 1.4 c1.68 -3.2 3.56 -6.2 5.02 -6.2 c1.71 0 0.91 4.2 0.71 6.2 c0.93 -2 1.83 -5 2.54 -6 c-0.5 3.4 -0.39 6.2 1.36 6 c1.75 -0.2 2.99 -3.6 3.76 -6 c-0.42 3 -0.34 6 1.61 6 M96.7 64 c0.02 -3.4 3.12 -6.4 5.22 -6 c2.55 0.6 0.81 5.2 -1.76 5.8 c-2.04 0.4 -2.49 -2 -0.03 -3.2 c1.91 0.2 3.04 2.8 4.86 3.4 c0.93 -2 1.83 -5 2.54 -6 c-0.5 3.4 -0.39 6.2 1.36 6 c1.75 -0.2 2.99 -3.6 3.76 -6 c-0.42 3 -0.34 6 1.61 6 c1.68 -3.2 3.56 -6.2 5.02 -6.2 c1.71 0 0.91 4.2 0.71 6.2 c3.28 -1.6 6.58 -4.4 4.82 -6.4 c-1.64 -1.4 -4.63 2.2 -3.05 5 c0.77 1.5 2.48 1.5 3.84 1.4 c4.1 -4.2 8.76 -11 7.05 -13.2 c-1.69 -1.2 -4.89 5.6 -4.65 10.6 c0.34 1.8 1.38 2.6 3.21 2.6 M137.7 64 c1.68 -3.2 3.56 -6.2 5.02 -6.2 c1.71 0 0.91 4.2 0.71 6.2 c0.02 -3.4 3.12 -6.4 5.22 -6 c2.55 0.6 0.81 5.2 -1.76 5.8 c-2.04 0.4 -2.49 -2 -0.03 -3.2 c1.91 0.2 3.04 2.8 4.86 3.4 c3.28 -1.6 6.58 -4.4 4.82 -6.4 c-1.64 -1.4 -4.63 2.2 -3.05 5 c0.77 1.5 2.48 1.5 3.84 1.4" />
+            <path class="w w2" pathLength="1" d="M64 86 c1.68 -3.2 3.56 -6.2 5.02 -6.2 c1.71 0 0.91 4.2 0.71 6.2 c4.1 -4.2 8.76 -11 7.05 -13.2 c-1.69 -1.2 -4.89 5.6 -4.65 10.6 c0.34 1.8 1.38 2.6 3.21 2.6 c0.93 -2 1.83 -5 2.54 -6 c-0.5 3.4 -0.39 6.2 1.36 6 c1.75 -0.2 2.99 -3.6 3.76 -6 c-0.42 3 -0.34 6 1.61 6 c3.28 -1.6 6.58 -4.4 4.82 -6.4 c-1.64 -1.4 -4.63 2.2 -3.05 5 c0.77 1.5 2.48 1.5 3.84 1.4 M96.7 86 c4.1 -4.2 8.76 -11 7.05 -13.2 c-1.69 -1.2 -4.89 5.6 -4.65 10.6 c0.34 1.8 1.38 2.6 3.21 2.6 c0.02 -3.4 3.12 -6.4 5.22 -6 c2.55 0.6 0.81 5.2 -1.76 5.8 c-2.04 0.4 -2.49 -2 -0.03 -3.2 c1.91 0.2 3.04 2.8 4.86 3.4 M117.1 86 c3.28 -1.6 6.58 -4.4 4.82 -6.4 c-1.64 -1.4 -4.63 2.2 -3.05 5 c0.77 1.5 2.48 1.5 3.84 1.4 c1.68 -3.2 3.56 -6.2 5.02 -6.2 c1.71 0 0.91 4.2 0.71 6.2 c0.02 -3.4 3.12 -6.4 5.22 -6 c2.55 0.6 0.81 5.2 -1.76 5.8 c-2.04 0.4 -2.49 -2 -0.03 -3.2 c1.91 0.2 3.04 2.8 4.86 3.4 c0.93 -2 1.83 -5 2.54 -6 c-0.5 3.4 -0.39 6.2 1.36 6 c1.75 -0.2 2.99 -3.6 3.76 -6 c-0.42 3 -0.34 6 1.61 6" />
+            <path class="w w3" pathLength="1" d="M64 108 c0.02 -3.4 3.12 -6.4 5.22 -6 c2.55 0.6 0.81 5.2 -1.76 5.8 c-2.04 0.4 -2.49 -2 -0.03 -3.2 c1.91 0.2 3.04 2.8 4.86 3.4 c0.93 -2 1.83 -5 2.54 -6 c-0.5 3.4 -0.39 6.2 1.36 6 c1.75 -0.2 2.99 -3.6 3.76 -6 c-0.42 3 -0.34 6 1.61 6 c4.1 -4.2 8.76 -11 7.05 -13.2 c-1.69 -1.2 -4.89 5.6 -4.65 10.6 c0.34 1.8 1.38 2.6 3.21 2.6 M93.7 108 c1.68 -3.2 3.56 -6.2 5.02 -6.2 c1.71 0 0.91 4.2 0.71 6.2 c3.28 -1.6 6.58 -4.4 4.82 -6.4 c-1.64 -1.4 -4.63 2.2 -3.05 5 c0.77 1.5 2.48 1.5 3.84 1.4 c4.1 -4.2 8.76 -11 7.05 -13.2 c-1.69 -1.2 -4.89 5.6 -4.65 10.6 c0.34 1.8 1.38 2.6 3.21 2.6 M113.1 108 l0.2 0" />
+            <rect class="n-tape" x="101" y="26" width="38" height="13" rx="2" transform="rotate(-6 120 32)" />
+            <g class="writer">
+              <g class="jot">
+                <g transform="rotate(-38)">
+                  <path class="p-wood" d="M0 0 L12 -4.5 L12 4.5 Z" />
+                  <path class="p-lead" d="M0 0 L4.6 -1.7 L4.6 1.7 Z" />
+                  <rect class="p-body" x="12" y="-4.5" width="46" height="9" />
+                  <path class="p-facet" d="M12 0 H58" />
+                  <rect class="p-metal" x="58" y="-4.5" width="7" height="9" />
+                  <rect class="p-eraser" x="65" y="-4.5" width="8" height="9" rx="3" />
+                </g>
+              </g>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <div class="brand">
+        <svg class="mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AnotherNotes">
   <rect width="512" height="512" rx="116" fill="#1E1E1E"/>
-  
   <path fill="#FFFFFF" d="M136 116a26 26 0 0 1 26-26h136l78 78v228a26 26 0 0 1-26 26H162a26 26 0 0 1-26-26V116Z"/>
   <path fill="#FFFFFF" fill-opacity="0.45" d="M298 90l78 78h-60a18 18 0 0 1-18-18V90Z"/>
-  
   <g fill="#1E1E1E">
     <rect x="176" y="212" width="160" height="22" rx="11"/>
     <rect x="176" y="264" width="160" height="22" rx="11"/>
     <rect x="176" y="316" width="98" height="22" rx="11"/>
   </g>
 </svg>
-      <h1>AnotherNotes</h1>
+        <span>AnotherNotes</span>
+      </div>
       <p class="sub">Getting your notes ready…</p>
-      <div class="spinner" role="progressbar" aria-label="Loading"></div>
     </main>
   </body>
 </html>

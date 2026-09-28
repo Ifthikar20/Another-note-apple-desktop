@@ -3,6 +3,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { API_ORIGIN, APP_ORIGIN, APP_SCHEME, CLIENT_HEADER, PROXIED_PATHS, RENDERER_DIR, SITE_ORIGIN } from "./config";
+import { appEvents } from "./events";
 import { serverRequest, type ServerResponse } from "./server";
 
 /*
@@ -102,7 +103,11 @@ async function forward(request: Request, url: URL): Promise<Response> {
   const body = hasBody ? new Uint8Array(await request.arrayBuffer()) : undefined;
   let response: ServerResponse;
   try {
-    response = await serverRequest(`${API_ORIGIN}${url.pathname}${url.search}`, { method: request.method, headers, body });
+    const target = `${API_ORIGIN}${url.pathname}${url.search}`;
+    response =
+      request.method === "POST" && url.pathname === REFRESH_PATH
+        ? await refreshOnce(() => serverRequest(target, { method: request.method, headers, body }))
+        : await serverRequest(target, { method: request.method, headers, body });
   } catch (e) {
     console.warn(`[api] ${request.method} ${url.pathname}: ${(e as Error).message}`);
     return new Response(JSON.stringify({ detail: "The AnotherNotes server could not be reached" }), {
@@ -111,6 +116,7 @@ async function forward(request: Request, url: URL): Promise<Response> {
     });
   }
   console.log(`[api] ${request.method} ${url.pathname} -> ${response.status}`);
+  if (response.status < 400 && changesLists(request.method, url.pathname, body)) appEvents.emit("lists-changed");
   const out = new Headers();
   for (const [name, value] of Object.entries(response.headers)) {
     if (!DROPPED_RESPONSE_HEADERS.has(name)) out.set(name, value);
@@ -130,6 +136,76 @@ async function forward(request: Request, url: URL): Promise<Response> {
     statusText: response.statusText,
     headers: out,
   });
+}
+
+/*
+  One renewal at a time, for every page. The API replaces the refresh cookie on each
+  renewal and refuses the one it replaced, and it answers a refused one by signing the
+  person out. Each tab is its own copy of the web app; they take turns (a lock they
+  share), but a page that closes or reloads mid-renewal gives up its turn before the
+  answer, and the next page would then send the cookie that is about to be replaced.
+  So renewals are joined here, where they all pass: while one is on its way, another
+  waits for it and gets the same answer, and one right after it gets that answer too
+  (the new access token lasts minutes; the pages share it anyway).
+*/
+const REFRESH_PATH = "/api/auth/refresh";
+const REUSE_REFRESH_MS = 5000;
+interface Buffered { status: number; statusText: string; headers: Record<string, string>; body: Uint8Array }
+let renewal: Promise<Buffered> | null = null;
+let renewed: { at: number; answer: Buffered } | null = null;
+
+async function refreshOnce(send: () => Promise<ServerResponse>): Promise<ServerResponse> {
+  if (renewed && Date.now() - renewed.at < REUSE_REFRESH_MS) return replay(renewed.answer, "reused");
+  if (renewal) return replay(await renewal, "joined");
+  renewal = (async () => {
+    const response = await send();
+    const bytes = new Uint8Array(await new Response(response.body).arrayBuffer());
+    return { status: response.status, statusText: response.statusText, headers: response.headers, body: bytes };
+  })();
+  try {
+    const answer = await renewal;
+    if (answer.status === 200) renewed = { at: Date.now(), answer };
+    return replay(answer);
+  } finally {
+    renewal = null;
+  }
+}
+
+function replay(answer: Buffered, how?: string): ServerResponse {
+  if (how) console.log(`[api] POST ${REFRESH_PATH}: ${how} the renewal in progress`);
+  return {
+    status: answer.status,
+    statusText: answer.statusText,
+    headers: { ...answer.headers },
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(answer.body.slice());
+        controller.close();
+      },
+    }),
+  };
+}
+
+/**
+ * Whether a request changes what the web app's lists show: its sidebar, dashboard and
+ * folders. Only these make the app refresh the pages that are out of sight; a note's
+ * text being saved, a quiz answer or a lesson's audio does not.
+ */
+function changesLists(method: string, pathname: string, body?: Uint8Array): boolean {
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") return false;
+  if (pathname === "/api/notes") return method === "POST";
+  if (/^\/api\/notes\/[^/]+$/.test(pathname)) {
+    if (method === "DELETE") return true;
+    if (method !== "PATCH" || !body) return false;
+    try {
+      return "title" in (JSON.parse(Buffer.from(body).toString("utf8")) as object);
+    } catch {
+      return false;
+    }
+  }
+  if (pathname === "/api/study-sessions/create-with-ai") return method === "POST";
+  if (/^\/api\/study-sessions\/[^/]+$/.test(pathname)) return method === "DELETE";
+  return /^\/api\/folders(\/|$)/.test(pathname);
 }
 
 const hasBodyStatus = (status: number): boolean => status !== 204 && status !== 304 && (status < 300 || status >= 400);

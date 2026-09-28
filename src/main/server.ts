@@ -62,11 +62,46 @@ export async function serverRequest(
       });
     });
     request.on("response", (response) => {
+      // The page can stop reading at any moment (it navigated, or its tab closed while the
+      // answer was arriving): then the stream is cancelled, what is still coming is
+      // dropped, and the request to the server is stopped.
+      let open = true;
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
-          response.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
-          response.on("end", () => controller.close());
-          response.on("error", (error: Error) => controller.error(error));
+          response.on("data", (chunk: Buffer) => {
+            if (!open) return;
+            try {
+              controller.enqueue(new Uint8Array(chunk));
+            } catch {
+              open = false;
+            }
+          });
+          response.on("end", () => {
+            if (!open) return;
+            open = false;
+            try {
+              controller.close();
+            } catch {
+              /* already closed by the reader */
+            }
+          });
+          response.on("error", (error: Error) => {
+            if (!open) return;
+            open = false;
+            try {
+              controller.error(error);
+            } catch {
+              /* already closed by the reader */
+            }
+          });
+        },
+        cancel() {
+          open = false;
+          try {
+            request.abort();
+          } catch {
+            /* already finished */
+          }
         },
       });
       void storeCookies(url, response.headers["set-cookie"]).finally(() =>

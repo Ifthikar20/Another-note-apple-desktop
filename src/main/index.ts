@@ -31,6 +31,15 @@ import { createMainWindow, focusMainWindow, getMainWindow, setBrowserSignIn, sho
 */
 
 app.setAppUserModelId("app.anothernote.desktop");
+
+// An error nothing caught goes to the log (the terminal the app was started from), not
+// into a dialog that stops the app until someone clicks it away.
+process.on("uncaughtException", (error) => {
+  console.error("[anothernotes] unexpected error:", error);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[anothernotes] unexpected error:", reason);
+});
 registerAppScheme();
 
 // Links the OS hands us before the window exists (a cold start from a link).

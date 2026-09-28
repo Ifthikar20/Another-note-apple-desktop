@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
 import { API_URL, APP_ORIGIN, BUNDLED, SITE_ORIGIN } from "./config";
 import { openExternal } from "./links";
-import { focusMainWindow, loadInActiveTab } from "./windows";
+import { focusMainWindow, openAfterSignIn } from "./windows";
 
 /*
   Signing in through the browser.
@@ -89,7 +89,7 @@ export function handleDeepLink(raw: string): void {
   const win = focusMainWindow();
   const exchange = exchangeUrlFor(raw);
   if (exchange) {
-    loadInActiveTab(exchange);
+    openAfterSignIn(exchange);
     return;
   }
   if (new URL(raw).hostname !== "auth") return;

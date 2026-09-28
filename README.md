@@ -29,6 +29,17 @@ leaves the page it was opened from as it was. The + button and ⌘N start a new 
 a tab, ⌘W closes a note's tab (the last one returns to the home page), Ctrl-Tab moves
 between the home page and the notes.
 
+Opening a tab is quick because a copy of the web app is always loaded and waiting out of
+sight: a new tab is that copy moving to the note inside the web app, with no reload
+(measured: 60 to 110 ms for a note, 130 to 170 ms for a new one including creating it on
+the server, against about 330 ms for a copy started fresh). Links are routed before the
+page follows them, so the page clicked in never flickers. Closing a tab first leaves the
+note the way the web app expects, so an empty new note is deleted and pending progress
+is sent, as in a browser; quitting does the same for every open tab. The sidebar is one
+for the window: docked or folded in one tab, it is the same in the others. Pages out of
+sight load again in the background when a note is made, renamed or deleted, so their
+lists are current when they come back. `[tabs]` lines in the terminal time every open.
+
 The interface opens instantly from disk; only data crosses the network. A checkout
 without `renderer/` falls back to loading the site in the window, which is how the first
 version worked and still handy for a quick look (`scripts/run-mac.sh --site`).
@@ -177,7 +188,16 @@ the next version in the background, and ask before restarting. The version comes
 
 ## Signing in
 
-The desktop has its own sign-in screen (`static/signin.html`), not the website's. It
+The desktop has its own sign-in screen (`static/signin.html`), not the website's. It is
+a desk: a paper plane crosses behind the card, a pencil doodles and twirls when clicked,
+a sticky note can be dragged, leaves fall, a paper ball can be tossed (and bounces, and
+can be landed in the pencil holder), and the pencil holder watches the pointer, follows
+the caret while a name is typed and closes its eyes while a password is. A wrong
+password gets a head shake; a right one sends a paper plane off from the button while
+the dashboard loads out of sight, and the dashboard takes the screen's place once it has
+drawn, with nothing blank in between. The loading screen before it is a pencil writing a
+note while a paper plane circles it. Both follow the system's light or dark appearance,
+and hold still for anyone who has asked macOS to reduce motion. It
 signs in against the same endpoints the website uses, from the main process
 (`src/main/signin.ts`):
 
@@ -270,6 +290,7 @@ src/main/signin.ts      the app's own sign-in: email and password, or a child's 
 src/main/auth.ts        sign-in through the browser: state + PKCE, the anothernotes:// link, the exchange
 src/main/renderer.ts    the bundled web app at app://anothernotes, and /api forwarded to the server
 src/main/server.ts      requests to the server, with the app keeping the server's cookies itself
+src/main/events.ts      "lists-changed", from the API forwarder to the window, to refresh pages out of sight
 src/main/windows.ts     the main window: tab bar and tabs, loading screen, sign-in routing, navigation rules
 src/main/media.ts       the display stays awake while the window plays sound
 src/main/menu.ts        native menus and shortcuts (New Note, Go, Reload, zoom, updates)
